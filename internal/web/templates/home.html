@@ -2,11 +2,8 @@
 <p class="lead">小さな民宿のための予約台帳です。Go言語の学習用に、標準ライブラリを中心に作っています。</p>
 
 <section class="panel" aria-labelledby="today-title">
-  <h2 id="today-title">今日（{{.Data.Label}}）</h2>
-  <p>
-    到着 {{len .Data.Arrivals}}件、出発 {{len .Data.Departures}}件、滞在中 {{len .Data.Staying}}件。
-    部屋ごとの月の予約は、<a href="/calendar">カレンダー</a>で見渡せます。
-  </p>
+  <h2 id="today-title">本日の状況（{{.Data.Label}}）</h2>
+  <p>到着 {{len .Data.Arrivals}}件、出発 {{len .Data.Departures}}件、滞在中 {{len .Data.Staying}}件。</p>
 </section>
 
 {{range .Data.Sections}}
@@ -32,7 +29,7 @@
         <td class="nowrap">{{.RoomName}}</td>
         <th scope="row">{{.GuestName}}</th>
         <td class="nowrap">{{.NumGuests}}名</td>
-        <td class="nowrap">{{if $showIn}}{{ymd .CheckIn}}（{{weekday .CheckIn}}）{{else}}{{ymd .CheckOut}}（{{weekday .CheckOut}}）{{end}}</td>
+        <td class="nowrap">{{if $showIn}}{{ymd .CheckIn}}（{{weekday .CheckIn}}）{{else}}{{ymd .CheckOut}}（{{weekday .CheckOut}}）{{end}}、{{.Nights}}泊</td>
         <td class="nowrap row-actions"><a href="/reservations/{{.ID}}/edit">詳細・編集<span class="visually-hidden">：{{.GuestName}}さんの予約</span></a></td>
       </tr>
       {{end}}
@@ -45,5 +42,5 @@
 </section>
 {{end}}
 
-<p class="actions"><a class="btn btn-primary" href="/reservations/new">予約を登録する</a> <a class="btn" href="/reservations">予約の一覧</a></p>
+<p class="actions"><a class="btn btn-primary" href="/reservations/new">予約を登録する</a> <a class="btn" href="/calendar">カレンダー</a> <a class="btn" href="/reservations">予約の一覧</a></p>
 {{end}}

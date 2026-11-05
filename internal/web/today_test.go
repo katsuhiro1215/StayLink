@@ -129,7 +129,7 @@ func TestHomeShowsTodaysArrivalsAndDepartures(t *testing.T) {
 
 func TestHomeWithoutReservations(t *testing.T) {
 	rec := get(newEnv(t).h, "/")
-	for _, s := range []string{"今日到着する予約はありません。", "今日出発する予約はありません。", "今夜、泊まっている予約はありません。", "到着 0件、出発 0件、滞在中 0件"} {
+	for _, s := range []string{"今日到着する予約はありません。", "今日出発する予約はありません。", "昨日以前から続けて泊まっている予約はありません。", "到着 0件、出発 0件、滞在中 0件"} {
 		mustContain(t, rec, s)
 	}
 }

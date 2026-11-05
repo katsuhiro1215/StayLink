@@ -71,7 +71,7 @@ func buildToday(today time.Time, resv []reservation.Reservation) todayView {
 	v.Sections = []todaySection{
 		{ID: "arrivals", Title: "今日の到着", Empty: "今日到着する予約はありません。", List: v.Arrivals},
 		{ID: "departures", Title: "今日の出発", Empty: "今日出発する予約はありません。", ShowCheckIn: true, List: v.Departures},
-		{ID: "staying", Title: "滞在中", Empty: "今夜、泊まっている予約はありません。", List: v.Staying},
+		{ID: "staying", Title: "滞在中", Empty: "昨日以前から続けて泊まっている予約はありません。", List: v.Staying},
 	}
 	return v
 }

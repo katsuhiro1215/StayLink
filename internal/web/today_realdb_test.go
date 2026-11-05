@@ -56,8 +56,16 @@ func TestRealDBHome(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("ステータス = %d", rec.Code)
 	}
-	for _, s := range []string{"到着 1件、出発 1件、滞在中 1件", "次の人", "前の人", "滞在さん"} {
-		mustContain(t, rec, s)
+	mustContain(t, rec, "到着 1件、出発 1件、滞在中 1件")
+	// どの一覧に入ったか（入れ替わりの2人が、逆の一覧に入らないこと）。
+	body := rec.Body.String()
+	for id, want := range map[string]string{"arrivals": "次の人", "departures": "前の人", "staying": "滞在さん"} {
+		if s := section(t, body, id); !strings.Contains(s, want) {
+			t.Errorf("%s の一覧に %q がない", id, want)
+		}
+	}
+	if s := section(t, body, "arrivals"); strings.Contains(s, "前の人") {
+		t.Error("到着の一覧に、出発する人が入っている")
 	}
 	for _, s := range []string{"昨日出発さん", "明日到着さん", "取消さん", "取消到着さん"} {
 		if strings.Contains(rec.Body.String(), s) {
