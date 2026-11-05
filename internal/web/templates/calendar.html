@@ -26,7 +26,7 @@
   <tbody>
     {{range .Data.Rows}}
     <tr>
-      <th scope="row" class="room-col">{{.RoomName}}{{if .Inactive}}（停止中）{{end}}</th>
+      <th scope="row" class="room-col" title="{{.RoomName}}">{{.RoomName}}{{if .Inactive}}（停止中）{{end}}</th>
       {{range .Cells}}
       {{if .Booking}}
       <td colspan="{{.Span}}" class="booking{{if .Booking.ContinuesBefore}} cont-before{{end}}{{if .Booking.ContinuesAfter}} cont-after{{end}}">

@@ -182,7 +182,7 @@ func newReservationURL(roomID int64, checkIn time.Time) string {
 
 // bookingLabel は、棒の全文（読み上げとツールチップ用）。棒の中には、幅の都合で名前しか出せない。
 func bookingLabel(b reservation.Reservation) string {
-	return fmt.Sprintf("%sさん、%s、%d泊、%d名", b.GuestName, japaneseRange(b.CheckIn, b.CheckOut), b.Nights(), b.NumGuests)
+	return fmt.Sprintf("%s、%s、%d泊、%d名", honorific(b.GuestName), japaneseRange(b.CheckIn, b.CheckOut), b.Nights(), b.NumGuests)
 }
 
 // calendar は GET /calendar?month=2026-11。month が無ければ、今日を含む月。

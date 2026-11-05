@@ -30,7 +30,7 @@
         <th scope="row">{{.GuestName}}</th>
         <td class="nowrap">{{.NumGuests}}名</td>
         <td class="nowrap">{{if $showIn}}{{ymd .CheckIn}}（{{weekday .CheckIn}}）{{else}}{{ymd .CheckOut}}（{{weekday .CheckOut}}）{{end}}、{{.Nights}}泊</td>
-        <td class="nowrap row-actions"><a href="/reservations/{{.ID}}/edit">詳細・編集<span class="visually-hidden">：{{.GuestName}}さんの予約</span></a></td>
+        <td class="nowrap row-actions"><a href="/reservations/{{.ID}}/edit">詳細・編集<span class="visually-hidden">：{{honorific .GuestName}}の予約</span></a></td>
       </tr>
       {{end}}
     </tbody>
