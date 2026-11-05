@@ -19,7 +19,7 @@ var assets embed.FS
 type pages map[string]*template.Template
 
 func loadPages() (pages, error) {
-	names := []string{"home", "rooms", "notfound"}
+	names := []string{"home", "rooms", "room_form", "notfound"}
 	p := make(pages, len(names))
 	for _, name := range names {
 		t, err := template.ParseFS(assets, "templates/layout.html", "templates/"+name+".html")
@@ -31,12 +31,19 @@ func loadPages() (pages, error) {
 	return p, nil
 }
 
+// server は各ハンドラが共有するもの（テンプレートと保存先）を持つ。
+type server struct {
+	pages pages
+	rooms RoomStore
+}
+
 // NewHandler はルーティングを組み立てて返す。
-func NewHandler() (http.Handler, error) {
+func NewHandler(rooms RoomStore) (http.Handler, error) {
 	p, err := loadPages()
 	if err != nil {
 		return nil, err
 	}
+	s := &server{pages: p, rooms: rooms}
 
 	static, err := fs.Sub(assets, "static")
 	if err != nil {
@@ -48,22 +55,29 @@ func NewHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		p.render(w, http.StatusOK, "home", pageData{Title: "トップ", Active: "home"})
 	})
-	mux.HandleFunc("GET /rooms", func(w http.ResponseWriter, r *http.Request) {
-		p.render(w, http.StatusOK, "rooms", pageData{Title: "部屋", Active: "rooms"})
-	})
+	mux.HandleFunc("GET /rooms", s.roomList)
+	mux.HandleFunc("GET /rooms/new", s.roomNew)
+	mux.HandleFunc("POST /rooms", s.roomCreate)
+	mux.HandleFunc("GET /rooms/{id}/edit", s.roomEdit)
+	mux.HandleFunc("POST /rooms/{id}", s.roomUpdate)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
 	// 上のどれにも一致しなかった GET は 404 画面にする。
 	// GET に限るので、登録済みのパスへ別メソッドで来た場合は標準の 405（Allow 付き）になる。
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		p.render(w, http.StatusNotFound, "notfound", pageData{Title: "ページが見つかりません"})
+		s.notFound(w)
 	})
-	return mux, nil
+
+	// 他のサイトのページからブラウザ経由で送られた POST などを拒否する（標準ライブラリの機能）。
+	// 限界：Sec-Fetch-Site / Origin を持たないリクエスト（curl など）は通す。Host の検証もしない。
+	// 認証なし・自分のPCだけで使う前提の対策。LAN や外部に公開するなら、認証と Host 検証が要る。
+	return http.NewCrossOriginProtection().Handler(mux), nil
 }
 
 // pageData は全画面で共通のテンプレート入力。
 type pageData struct {
 	Title  string // <title> と見出しに使う
 	Active string // ナビゲーションで強調する項目
+	Data   any    // 画面ごとの中身（一覧やフォームの値）
 }
 
 func (p pages) render(w http.ResponseWriter, status int, name string, data pageData) {
