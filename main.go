@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/katsuhiro1215/StayLink/internal/web"
 )
@@ -20,5 +21,10 @@ func main() {
 	}
 	addr := ":" + port
 	log.Printf("起動します http://localhost%s", addr)
-	log.Fatal(http.ListenAndServe(addr, handler))
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second, // 接続だけ張って送らない相手を切る
+	}
+	log.Fatal(srv.ListenAndServe())
 }

@@ -8,6 +8,7 @@
   --text-sub: #b9b5a8;
   --gold: #e6b800;
   --green: #8fd36b;
+  color-scheme: dark; /* フォーム部品やスクロールバーも暗い配色にする */
 }
 
 * { box-sizing: border-box; }
@@ -17,7 +18,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
-  font-size: 17px;
+  font-size: 1.0625rem; /* 17px 相当。ブラウザの文字サイズ設定に追従する */
   line-height: 1.8;
 }
 

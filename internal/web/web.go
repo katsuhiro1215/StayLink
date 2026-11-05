@@ -2,6 +2,7 @@
 package web
 
 import (
+	"bytes"
 	"embed"
 	"html/template"
 	"io/fs"
@@ -51,8 +52,9 @@ func NewHandler() (http.Handler, error) {
 		p.render(w, http.StatusOK, "rooms", pageData{Title: "部屋", Active: "rooms"})
 	})
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
-	// 上のどれにも一致しなかったリクエストは 404 画面にする。
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	// 上のどれにも一致しなかった GET は 404 画面にする。
+	// GET に限るので、登録済みのパスへ別メソッドで来た場合は標準の 405（Allow 付き）になる。
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		p.render(w, http.StatusNotFound, "notfound", pageData{Title: "ページが見つかりません"})
 	})
 	return mux, nil
@@ -71,10 +73,16 @@ func (p pages) render(w http.ResponseWriter, status int, name string, data pageD
 		http.Error(w, "内部エラー", http.StatusInternalServerError)
 		return
 	}
+	// 先にバッファへ描画する。途中で失敗しても、壊れたHTMLを 200 で返さず 500 にできる。
+	var buf bytes.Buffer
+	if err := t.ExecuteTemplate(&buf, "layout", data); err != nil {
+		log.Printf("描画に失敗しました (%s): %v", name, err)
+		http.Error(w, "内部エラー", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
-	if err := t.ExecuteTemplate(w, "layout", data); err != nil {
-		// ステータスは送信済みなので、ログに残すだけにする。
-		log.Printf("描画に失敗しました (%s): %v", name, err)
+	if _, err := buf.WriteTo(w); err != nil {
+		log.Printf("送信に失敗しました (%s): %v", name, err)
 	}
 }
