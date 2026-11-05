@@ -1,0 +1,15 @@
+{{define "content"}}
+<p class="notice notice-warn" role="status">この予約は取り消されています。内容は記録として残しており、変更はできません。</p>
+
+<dl class="details">
+  <dt>宿泊者</dt><dd>{{.Data.GuestName}}</dd>
+  <dt>部屋</dt><dd>{{.Data.RoomName}}</dd>
+  <dt>チェックイン</dt><dd>{{ymd .Data.CheckIn}}（{{weekday .Data.CheckIn}}）</dd>
+  <dt>チェックアウト</dt><dd>{{ymd .Data.CheckOut}}（{{weekday .Data.CheckOut}}）／{{.Data.Nights}}泊</dd>
+  <dt>人数</dt><dd>{{.Data.NumGuests}}名</dd>
+  <dt>連絡先</dt><dd>{{if .Data.Contact}}{{.Data.Contact}}{{else}}なし{{end}}</dd>
+  <dt>備考</dt><dd class="pre">{{if .Data.Note}}{{.Data.Note}}{{else}}なし{{end}}</dd>
+</dl>
+
+<p class="actions"><a class="btn" href="/reservations?status=cancelled">取消済みの一覧へ戻る</a></p>
+{{end}}

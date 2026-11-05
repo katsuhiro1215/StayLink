@@ -97,6 +97,8 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
 .table thead th { color: var(--text-sub); font-weight: 400; border-bottom-color: var(--text-sub); }
 .table tbody th { font-weight: 700; }
 .table .is-inactive th, .table .is-inactive td { color: var(--text-sub); }
+.nowrap { white-space: nowrap; }
+.row-actions a { margin-right: 1.25rem; }
 .badge { display: inline-block; padding: 0.1rem 0.7rem; border: 1px solid; font-size: 1rem; }
 .badge-ok { color: var(--ok); border-color: var(--ok); }
 .badge-off { color: var(--text-sub); border-color: var(--text-sub); }
@@ -121,10 +123,36 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
 .field-check label { margin: 0; }
 .field-check .field-hint { grid-column: 2; }
 
+/* 予約：絞り込み・選択・複数行入力・詳細表示 */
+.filter { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem 1.5rem; margin: 0 0 1.5rem; padding: 1rem 1.25rem; max-width: 60rem; background: var(--bg-panel); border: 1px solid var(--line); }
+.filter-item label { display: block; margin: 0 0 0.25rem; color: var(--text-sub); }
+select, input[type="date"], textarea {
+  padding: 0.6rem 0.8rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--text-sub);
+  color: var(--text);
+  font: inherit;
+}
+.filter select, .filter input[type="date"] { background: var(--bg); }
+.form select, .form input[type="date"], .form textarea { width: 100%; }
+.field select[aria-invalid="true"], .field input[type="date"][aria-invalid="true"], .field textarea[aria-invalid="true"] { border-color: var(--warn); border-width: 2px; }
+.field input[type="number"] { max-width: 12rem; }
+.field-row { display: flex; flex-wrap: wrap; gap: 0 1.5rem; }
+.field-row .field { flex: 1 1 14rem; }
+.field-row + .field-hint { margin: -0.75rem 0 1.5rem; }
+.details { display: grid; grid-template-columns: 11rem 1fr; gap: 0.6rem 1.5rem; max-width: 44rem; margin: 0 0 1.5rem; }
+.details dt { color: var(--text-sub); }
+.details dd { margin: 0; }
+.pre { white-space: pre-wrap; }
+.btn-danger { border-color: var(--warn); color: var(--warn); font-weight: 700; }
+
 /* 画面が狭いときはメニューを上に出す */
 @media (max-width: 40rem) {
   .shell { grid-template-columns: 1fr; }
   .side { border-right: 0; border-bottom: 1px solid var(--line); padding: 1rem 1.25rem; }
   .brand-sub { margin-bottom: 1rem; }
   .main { padding: 1.5rem 1.25rem; }
+  .details { grid-template-columns: 1fr; gap: 0.1rem; }
+  .details dd { margin-bottom: 0.75rem; }
+  .table { display: block; overflow-x: auto; } /* 表は横にスクロール */
 }

@@ -11,6 +11,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib" // database/sql 用の PostgreSQL ドライバ
 
+	"github.com/katsuhiro1215/StayLink/internal/reservation"
 	"github.com/katsuhiro1215/StayLink/internal/room"
 	"github.com/katsuhiro1215/StayLink/internal/web"
 )
@@ -35,7 +36,7 @@ func main() {
 		log.Fatalf("DB に接続できません（docker compose up -d --wait は実行しましたか）: %v", err)
 	}
 
-	handler, err := web.NewHandler(room.NewStore(db))
+	handler, err := web.NewHandler(room.NewStore(db), reservation.NewStore(db))
 	if err != nil {
 		log.Fatalf("画面の準備に失敗しました: %v", err)
 	}

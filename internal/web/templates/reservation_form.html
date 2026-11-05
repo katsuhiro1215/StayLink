@@ -1,0 +1,74 @@
+{{define "content"}}
+{{with .Data.Errors}}
+<p class="notice notice-warn" role="alert">入力に誤りがあります。各項目のメッセージを確認して、直してください。</p>
+{{end}}
+
+{{if not .Data.Rooms}}
+<section class="panel">
+  <h2>選べる部屋がありません</h2>
+  <p>予約を登録するには、先に<a href="/rooms/new">部屋を登録</a>してください。</p>
+</section>
+{{else}}
+<form class="form" method="post" action="{{.Data.Action}}" novalidate>
+  <div class="field">
+    <label for="room_id">部屋</label>
+    <select id="room_id" name="room_id" required
+      {{if .Data.Errors.room_id}}aria-invalid="true" aria-describedby="room_id-error"{{end}}>
+      <option value="">選んでください</option>
+      {{range .Data.Rooms}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+    {{with .Data.Errors.room_id}}<p class="field-error" id="room_id-error">{{.}}</p>{{end}}
+  </div>
+
+  <div class="field">
+    <label for="guest_name">宿泊者の名前</label>
+    <input id="guest_name" name="guest_name" type="text" value="{{.Data.GuestName}}" maxlength="50" required
+      {{if .Data.Errors.guest_name}}aria-invalid="true" aria-describedby="guest_name-error"{{end}}>
+    {{with .Data.Errors.guest_name}}<p class="field-error" id="guest_name-error">{{.}}</p>{{end}}
+  </div>
+
+  <div class="field">
+    <label for="contact">連絡先（電話・メール。なくても登録できます）</label>
+    <input id="contact" name="contact" type="text" value="{{.Data.Contact}}" maxlength="100"
+      {{if .Data.Errors.contact}}aria-invalid="true" aria-describedby="contact-error"{{end}}>
+    {{with .Data.Errors.contact}}<p class="field-error" id="contact-error">{{.}}</p>{{end}}
+  </div>
+
+  <div class="field-row">
+    <div class="field">
+      <label for="check_in">チェックイン</label>
+      <input id="check_in" name="check_in" type="date" value="{{.Data.CheckIn}}" required
+        {{if .Data.Errors.check_in}}aria-invalid="true" aria-describedby="check_in-error"{{end}}>
+      {{with .Data.Errors.check_in}}<p class="field-error" id="check_in-error">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="check_out">チェックアウト</label>
+      <input id="check_out" name="check_out" type="date" value="{{.Data.CheckOut}}" required
+        aria-describedby="check_out-hint{{if .Data.Errors.check_out}} check_out-error{{end}}"
+        {{if .Data.Errors.check_out}}aria-invalid="true"{{end}}>
+      {{with .Data.Errors.check_out}}<p class="field-error" id="check_out-error">{{.}}</p>{{end}}
+    </div>
+  </div>
+  <p class="field-hint" id="check_out-hint">チェックアウト日の夜は泊まりません。同じ日に別の方がチェックインできます。</p>
+
+  <div class="field">
+    <label for="num_guests">人数（名）</label>
+    <input id="num_guests" name="num_guests" type="number" inputmode="numeric" min="1" value="{{.Data.NumGuests}}" required
+      {{if .Data.Errors.num_guests}}aria-invalid="true" aria-describedby="num_guests-error"{{end}}>
+    {{with .Data.Errors.num_guests}}<p class="field-error" id="num_guests-error">{{.}}</p>{{end}}
+  </div>
+
+  <div class="field">
+    <label for="note">備考（アレルギー、到着予定の時刻など）</label>
+    <textarea id="note" name="note" rows="4" maxlength="500"
+      {{if .Data.Errors.note}}aria-invalid="true" aria-describedby="note-error"{{end}}>{{.Data.Note}}</textarea>
+    {{with .Data.Errors.note}}<p class="field-error" id="note-error">{{.}}</p>{{end}}
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">{{if .Data.IsNew}}登録する{{else}}更新する{{end}}</button>
+    <a class="btn" href="/reservations">一覧へ戻る</a>
+  </div>
+</form>
+{{end}}
+{{end}}

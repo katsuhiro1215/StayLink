@@ -1,0 +1,16 @@
+{{define "content"}}
+<p class="notice notice-warn" role="alert">次の予約を取り消します。取り消した予約は一覧から消えず、「取消済み」として記録に残ります。元に戻すことはできません。</p>
+
+<dl class="details">
+  <dt>宿泊者</dt><dd>{{.Data.GuestName}}</dd>
+  <dt>部屋</dt><dd>{{.Data.RoomName}}</dd>
+  <dt>チェックイン</dt><dd>{{ymd .Data.CheckIn}}（{{weekday .Data.CheckIn}}）</dd>
+  <dt>チェックアウト</dt><dd>{{ymd .Data.CheckOut}}（{{weekday .Data.CheckOut}}）／{{.Data.Nights}}泊</dd>
+  <dt>人数</dt><dd>{{.Data.NumGuests}}名</dd>
+</dl>
+
+<form class="actions" method="post" action="/reservations/{{.Data.ID}}/cancel">
+  <button class="btn btn-danger" type="submit">この予約を取り消す</button>
+  <a class="btn" href="/reservations/{{.Data.ID}}/edit">やめて戻る</a>
+</form>
+{{end}}

@@ -73,7 +73,7 @@ func (f *fakeStore) Update(_ context.Context, r *room.Room) error {
 
 func newRoomsHandler(t *testing.T, f *fakeStore) http.Handler {
 	t.Helper()
-	h, err := NewHandler(f)
+	h, err := NewHandler(f, &fakeReservations{})
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
