@@ -33,7 +33,7 @@
         <a href="/reservations/{{.Booking.ID}}/edit" title="{{.Booking.Label}}" aria-label="{{.Booking.Label}}">{{.Booking.Guest}}</a>
       </td>
       {{else}}
-      <td class="empty{{if .Weekend}} weekend{{end}}{{if .Today}} today{{end}}"></td>
+      <td class="empty{{if .Weekend}} weekend{{end}}{{if .Today}} today{{end}}"><a class="cell-new" href="{{.NewURL}}" title="{{.NewText}}" tabindex="-1" aria-hidden="true"></a></td>
       {{end}}
       {{end}}
     </tr>
@@ -45,6 +45,7 @@
 <ul class="legend">
   <li>1マスが1泊です。チェックアウト日のマスは空いていて、同じ日に次の方がチェックインできます。</li>
   <li>点線の端は、前の月から続いている、または次の月へ続いている予約です。</li>
+  <li>空いているマスを選ぶと、その部屋・その日から予約を登録できます（マウス用。キーボードや読み上げでは、上の「予約を登録する」から登録してください）。</li>
   <li>名前が切れて見えるときは、名前を選ぶか、マウスを重ねると、期間と人数が分かります。</li>
 </ul>
 {{else}}

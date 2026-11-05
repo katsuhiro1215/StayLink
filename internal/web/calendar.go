@@ -11,7 +11,9 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/katsuhiro1215/StayLink/internal/reservation"
@@ -54,6 +56,8 @@ type calCell struct {
 	Booking *calBooking // nil なら空きマス
 	Weekend bool
 	Today   bool
+	NewURL  string // 空きマスのみ：この部屋・この日から予約を登録する画面へのリンク
+	NewText string // 空きマスのみ：リンクの説明（「松の間、11月5日に予約を登録」）
 }
 
 type calBooking struct {
@@ -116,14 +120,14 @@ func buildCalendar(monthStart, today time.Time, rooms []room.Room, resv []reserv
 		v.Rows = append(v.Rows, calRow{
 			RoomName: rm.Name,
 			Inactive: !rm.IsActive,
-			Cells:    buildCells(v.Days, monthStart, nextStart, bookings),
+			Cells:    buildCells(rm, v.Days, monthStart, nextStart, bookings),
 		})
 	}
 	return v
 }
 
 // buildCells は1つの部屋の1か月分のセルを作る。bookings はチェックイン日の順。
-func buildCells(days []calDay, monthStart, nextStart time.Time, bookings []reservation.Reservation) []calCell {
+func buildCells(rm room.Room, days []calDay, monthStart, nextStart time.Time, bookings []reservation.Reservation) []calCell {
 	// 月の最初の日から数えて何日目か（0 始まり）。
 	// 時刻やタイムゾーンを持つ値が混ざっても1日ずれないよう、まず「その値が示す年月日」だけを取り出して、
 	// UTC の 0 時に揃えてから引く（引き算の結果は、必ず24時間で割り切れる）。
@@ -135,7 +139,12 @@ func buildCells(days []calDay, monthStart, nextStart time.Time, bookings []reser
 	var cells []calCell
 	empty := func(from, to int) {
 		for i := from; i < to; i++ {
-			cells = append(cells, calCell{Span: 1, Weekend: days[i].Weekend, Today: days[i].Today})
+			date := monthStart.AddDate(0, 0, i)
+			cells = append(cells, calCell{
+				Span: 1, Weekend: days[i].Weekend, Today: days[i].Today,
+				NewURL:  newReservationURL(rm.ID, date),
+				NewText: fmt.Sprintf("%s、%d月%d日に予約を登録", rm.Name, int(date.Month()), date.Day()),
+			})
 		}
 	}
 
@@ -162,6 +171,12 @@ func buildCells(days []calDay, monthStart, nextStart time.Time, bookings []reser
 	}
 	empty(cursor, len(days))
 	return cells
+}
+
+// newReservationURL は、部屋と泊まり始めの日を入れた、予約の登録画面へのリンク。
+func newReservationURL(roomID int64, checkIn time.Time) string {
+	q := url.Values{"room_id": {strconv.FormatInt(roomID, 10)}, "check_in": {checkIn.Format(reservation.DateLayout)}}
+	return "/reservations/new?" + q.Encode()
 }
 
 // bookingLabel は、棒の全文（読み上げとツールチップ用）。棒の中には、幅の都合で名前しか出せない。

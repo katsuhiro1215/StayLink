@@ -410,4 +410,63 @@ func TestCalendarOnlyAllowsGET(t *testing.T) {
 	}
 }
 
+// 空きマスだけが「この部屋・この日から登録」のリンクを持つ。予約のマスは持たない。
+func TestBuildCalendarEmptyCellsLinkToNewReservation(t *testing.T) {
+	v := buildCalendar(day(t, "2026-11-01"), day(t, "2026-11-05"), []room.Room{matsu},
+		[]reservation.Reservation{res(t, 1, "山田", "2026-11-10", "2026-11-13")})
+
+	empties, bookings := 0, 0
+	date := 1 // 各セルの先頭の日
+	for _, c := range v.Rows[0].Cells {
+		if c.Booking != nil {
+			bookings++
+			if c.NewURL != "" || c.NewText != "" {
+				t.Errorf("%d日：予約のマスにリンクがある", date)
+			}
+		} else {
+			empties++
+			want := fmt.Sprintf("/reservations/new?check_in=2026-11-%02d&room_id=1", date)
+			if c.NewURL != want {
+				t.Errorf("%d日：リンク = %q, 期待 %q", date, c.NewURL, want)
+			}
+		}
+		date += c.Span
+	}
+	if bookings != 1 || empties != 27 { // 30日 − 予約の3泊
+		t.Errorf("予約 %d・空き %d, 期待 1・27", bookings, empties)
+	}
+
+	first, last := v.Rows[0].Cells[0], v.Rows[0].Cells[len(v.Rows[0].Cells)-1]
+	if first.NewText != "松の間、11月1日に予約を登録" || last.NewText != "松の間、11月30日に予約を登録" {
+		t.Errorf("説明 = %q / %q", first.NewText, last.NewText)
+	}
+	// チェックアウト日（13日）は空いていて、そこから登録できる。
+	if want := "/reservations/new?check_in=2026-11-13&room_id=1"; !hasURL(v.Rows[0], want) {
+		t.Errorf("チェックアウト日のマスに %q がない", want)
+	}
+}
+
+func hasURL(row calRow, url string) bool {
+	for _, c := range row.Cells {
+		if c.NewURL == url {
+			return true
+		}
+	}
+	return false
+}
+
+// 画面（HTML）：リンクは、読み上げとキーボードの移動から外してある（マウス用）。数は空きマスと一致する。
+func TestCalendarEmptyCellLinksInHTML(t *testing.T) {
+	e := newEnv(t)
+	body := get(e.h, "/calendar?month=2026-11").Body.String()
+
+	if n := strings.Count(body, `class="cell-new"`); n == 0 {
+		t.Fatal("空きマスのリンクが1つもない")
+	}
+	mustContain(t, get(e.h, "/calendar?month=2026-11"), `href="/reservations/new?check_in=2026-11-01&amp;room_id=1"`)
+	if strings.Count(body, `class="cell-new"`) != strings.Count(body, `tabindex="-1" aria-hidden="true"></a>`) {
+		t.Error("空きマスのリンクに、tabindex=-1 と aria-hidden がそろっていない")
+	}
+}
+
 var errBoom = fmt.Errorf("boom")

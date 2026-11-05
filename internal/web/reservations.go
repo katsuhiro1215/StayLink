@@ -147,6 +147,11 @@ func (s *server) reservationNew(w http.ResponseWriter, r *http.Request) {
 		CheckOut:  today.AddDate(0, 0, 1).Format(reservation.DateLayout),
 		NumGuests: "2",
 	}
+	// カレンダーの空きマスから来たとき：泊まり始めの日を入れる（1泊。正しい日付のときだけ）。
+	if in, err := reservation.ParseDate(r.URL.Query().Get("check_in")); err == nil {
+		form.CheckIn = in.Format(reservation.DateLayout)
+		form.CheckOut = in.AddDate(0, 0, 1).Format(reservation.DateLayout)
+	}
 	form.Rooms = roomOptions(rooms, form.RoomID, 0)
 	s.renderReservationForm(w, http.StatusOK, "予約の登録", form)
 }

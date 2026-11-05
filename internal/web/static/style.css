@@ -171,6 +171,8 @@ select, input[type="date"], textarea {
 .calendar th.day.today { background: var(--accent); color: #0d0d0d; font-weight: 700; } /* 今日：背景がゴールドの装飾（状態の意味は持たせない） */
 .calendar td { height: 3.25rem; padding: 0; border-bottom: 1px solid var(--line); border-right: 1px solid #1c1c1c; }
 .calendar td.today { background: #1c1a10; }
+.calendar td.empty a.cell-new { display: block; height: 3.25rem; }
+.calendar td.empty a.cell-new:hover { background: #262626; }
 .calendar td.booking { padding: 0.35rem 2px; background: transparent; }
 .calendar td.booking a {
   display: block; padding: 0.35rem 0.5rem;
