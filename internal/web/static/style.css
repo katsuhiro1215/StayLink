@@ -154,10 +154,10 @@ select, input[type="date"], textarea {
 .calendar-wrap { max-width: none; } /* カレンダーは幅を広く使う（はみ出す分は、この枠の中でスクロール） */
 .calendar { border-collapse: separate; border-spacing: 0; table-layout: fixed; }
 /* 表の幅は、部屋の列＋日数分。月の日数ごとに決める（style 属性を使わないので、あとから CSP を厳しくできる） */
-.calendar.days-28 { width: calc(8.5rem + 28 * 3.25rem); }
-.calendar.days-29 { width: calc(8.5rem + 29 * 3.25rem); }
-.calendar.days-30 { width: calc(8.5rem + 30 * 3.25rem); }
-.calendar.days-31 { width: calc(8.5rem + 31 * 3.25rem); }
+.calendar.days-28 { width: calc(8.5rem + 28 * 3.75rem); }
+.calendar.days-29 { width: calc(8.5rem + 29 * 3.75rem); }
+.calendar.days-30 { width: calc(8.5rem + 30 * 3.75rem); }
+.calendar.days-31 { width: calc(8.5rem + 31 * 3.75rem); }
 .calendar .room-col {
   position: sticky; left: 0; z-index: 2; /* 横にスクロールしても、部屋の名前は左に残る */
   width: 8.5rem; padding: 0.5rem 0.75rem; text-align: left; font-weight: 700;
@@ -165,7 +165,7 @@ select, input[type="date"], textarea {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .calendar thead .room-col { color: var(--text-sub); font-weight: 400; border-bottom: 1px solid var(--text-sub); }
-.calendar th.day { width: 3.25rem; padding: 0.25rem 0; text-align: center; font-weight: 400; color: var(--text-sub); border-bottom: 1px solid var(--text-sub); }
+.calendar th.day { width: 3.75rem; padding: 0.25rem 0; text-align: center; font-weight: 400; color: var(--text-sub); border-bottom: 1px solid var(--text-sub); }
 .calendar .day-num, .calendar .day-wd { display: block; line-height: 1.5; }
 .calendar th.day.weekend, .calendar td.weekend { background: #131313; }
 .calendar th.day.today { background: var(--accent); color: #0d0d0d; font-weight: 700; } /* 今日：背景がゴールドの装飾（状態の意味は持たせない） */
