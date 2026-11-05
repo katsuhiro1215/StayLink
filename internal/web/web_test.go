@@ -10,7 +10,7 @@ import (
 
 func newTestHandler(t *testing.T) http.Handler {
 	t.Helper()
-	h, err := NewHandler()
+	h, err := NewHandler(&fakeStore{})
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
@@ -31,12 +31,12 @@ func TestRouting(t *testing.T) {
 	}{
 		{"トップ", "GET", "/", 200, "民宿のための予約台帳", "text/html; charset=utf-8", ""},
 		{"トップはHEADも受ける", "HEAD", "/", 200, "", "text/html; charset=utf-8", ""},
-		{"部屋", "GET", "/rooms", 200, "部屋の一覧と登録", "text/html; charset=utf-8", ""},
-		{"CSS", "GET", "/static/style.css", 200, "--gold", "text/css; charset=utf-8", ""},
+		{"部屋", "GET", "/rooms", 200, "部屋を登録する", "text/html; charset=utf-8", ""},
+		{"CSS", "GET", "/static/style.css", 200, "--accent", "text/css; charset=utf-8", ""},
 		{"存在しないページは404画面", "GET", "/nothing", 404, "お探しのページはありません", "text/html; charset=utf-8", ""},
 		{"末尾スラッシュ付きの/rooms/は404", "GET", "/rooms/", 404, "お探しのページはありません", "", ""},
 		{"存在しない静的ファイルは404", "GET", "/static/none.css", 404, "404 page not found", "", ""},
-		{"登録済みパスへのPOSTは405", "POST", "/rooms", 405, "", "", "GET, HEAD"},
+		{"登録済みパスへの未対応メソッドは405", "PUT", "/rooms", 405, "", "", "GET, HEAD, POST"},
 		{"トップへのPOSTも405", "POST", "/", 405, "", "", "GET, HEAD"},
 	}
 

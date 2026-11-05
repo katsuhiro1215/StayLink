@@ -1,6 +1,36 @@
 {{define "content"}}
+{{with .Data.Message}}<p class="notice notice-ok" role="status">{{.}}</p>{{end}}
+
+<p class="actions"><a class="btn btn-primary" href="/rooms/new">部屋を登録する</a></p>
+
+{{if .Data.Rooms}}
+<table class="table">
+  <caption class="visually-hidden">部屋の一覧</caption>
+  <thead>
+    <tr>
+      <th scope="col">表示順</th>
+      <th scope="col">部屋の名前</th>
+      <th scope="col">定員</th>
+      <th scope="col">状態</th>
+      <th scope="col"><span class="visually-hidden">操作</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Data.Rooms}}
+    <tr{{if not .IsActive}} class="is-inactive"{{end}}>
+      <td>{{.SortOrder}}</td>
+      <th scope="row">{{.Name}}</th>
+      <td>{{.Capacity}}名</td>
+      <td>{{if .IsActive}}<span class="badge badge-ok">使用中</span>{{else}}<span class="badge badge-off">停止中</span>{{end}}</td>
+      <td><a href="/rooms/{{.ID}}/edit">{{.Name}}を編集する</a></td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
 <section class="panel">
-  <h2>準備中</h2>
-  <p>部屋の一覧と登録は、データベースをつなぐ次の段階で作ります。</p>
+  <h2>まだ部屋がありません</h2>
+  <p>「部屋を登録する」から、最初の部屋を登録してください。</p>
 </section>
+{{end}}
 {{end}}

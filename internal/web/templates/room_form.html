@@ -1,0 +1,43 @@
+{{define "content"}}
+{{with .Data.Errors}}
+<p class="notice notice-warn" role="alert">入力に誤りがあります。各項目のメッセージを確認して、直してください。</p>
+{{end}}
+
+<form class="form" method="post" action="{{.Data.Action}}" novalidate>
+  <div class="field">
+    <label for="name">部屋の名前</label>
+    <input id="name" name="name" type="text" value="{{.Data.Name}}" maxlength="50" required
+      {{if .Data.Errors.name}}aria-invalid="true" aria-describedby="name-error"{{end}}>
+    {{with .Data.Errors.name}}<p class="field-error" id="name-error">{{.}}</p>{{end}}
+  </div>
+
+  <div class="field">
+    <label for="capacity">定員（名）</label>
+    <input id="capacity" name="capacity" type="number" inputmode="numeric" min="1" max="100" value="{{.Data.Capacity}}" required
+      {{if .Data.Errors.capacity}}aria-invalid="true" aria-describedby="capacity-error"{{end}}>
+    {{with .Data.Errors.capacity}}<p class="field-error" id="capacity-error">{{.}}</p>{{end}}
+  </div>
+
+  <div class="field">
+    <label for="sort_order">表示順</label>
+    <input id="sort_order" name="sort_order" type="number" inputmode="numeric" min="0" max="9999" value="{{.Data.SortOrder}}"
+      aria-describedby="sort_order-hint{{if .Data.Errors.sort_order}} sort_order-error{{end}}"
+      {{if .Data.Errors.sort_order}}aria-invalid="true"{{end}}>
+    <p class="field-hint" id="sort_order-hint">数字が小さい部屋ほど、一覧の上に出ます。</p>
+    {{with .Data.Errors.sort_order}}<p class="field-error" id="sort_order-error">{{.}}</p>{{end}}
+  </div>
+
+  {{if not .Data.IsNew}}
+  <div class="field field-check">
+    <input id="is_active" name="is_active" type="checkbox"{{if .Data.IsActive}} checked{{end}} aria-describedby="is_active-hint">
+    <label for="is_active">この部屋を使用中にする</label>
+    <p class="field-hint" id="is_active-hint">外すと「停止中」になります。部屋は削除せず、過去の予約の記録を守ります。</p>
+  </div>
+  {{end}}
+
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">{{if .Data.IsNew}}登録する{{else}}更新する{{end}}</button>
+    <a class="btn" href="/rooms">一覧へ戻る</a>
+  </div>
+</form>
+{{end}}

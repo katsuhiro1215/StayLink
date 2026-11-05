@@ -8,7 +8,7 @@
 </head>
 <body>
   <div class="shell">
-    <aside class="side">
+    <header class="side">
       <a class="brand" href="/">StayLink</a>
       <p class="brand-sub">民宿の予約台帳</p>
       <nav aria-label="メインメニュー">
@@ -17,7 +17,7 @@
           <li><a href="/rooms"{{if eq .Active "rooms"}} aria-current="page"{{end}}>部屋</a></li>
         </ul>
       </nav>
-    </aside>
+    </header>
     <main class="main">
       <h1 class="page-title">{{.Title}}</h1>
       {{template "content" .}}
