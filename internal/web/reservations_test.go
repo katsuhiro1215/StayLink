@@ -317,6 +317,35 @@ func TestReservationNewForm(t *testing.T) {
 	}
 }
 
+// カレンダーの空きマスから来たとき：check_in が正しければ、その日から1泊を入れる。誤りなら今日（既定）のまま。
+func TestReservationNewFormCheckInFromCalendar(t *testing.T) {
+	tests := []struct {
+		name, query string
+		in, out     string
+	}{
+		{"正しい日付", "check_in=2026-12-31", "2026-12-31", "2027-01-01"}, // 年またぎ
+		{"うるう日", "check_in=2028-02-28", "2028-02-28", "2028-02-29"},
+		{"範囲の下限", "check_in=2000-01-01", "2000-01-01", "2000-01-02"},
+		{"下限の前", "check_in=1999-12-31", "2026-11-05", "2026-11-06"},
+		{"上限（翌日が2100年内）", "check_in=2100-12-30", "2100-12-30", "2100-12-31"},
+		{"上限（翌日が2101年）", "check_in=2100-12-31", "2026-11-05", "2026-11-06"},
+		{"存在しない日", "check_in=2026-02-30", "2026-11-05", "2026-11-06"},
+		{"形式が違う", "check_in=abc", "2026-11-05", "2026-11-06"},
+		{"空", "check_in=", "2026-11-05", "2026-11-06"},
+		{"指定なし", "room_id=1", "2026-11-05", "2026-11-06"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := get(newEnv(t).h, "/reservations/new?"+tt.query)
+			if rec.Code != 200 {
+				t.Fatalf("ステータス = %d", rec.Code)
+			}
+			mustContain(t, rec, `name="check_in" type="date" value="`+tt.in+`"`)
+			mustContain(t, rec, `name="check_out" type="date" value="`+tt.out+`"`)
+		})
+	}
+}
+
 func TestReservationNewFormWithoutRooms(t *testing.T) {
 	e := newEnv(t)
 	e.rms.rooms = nil

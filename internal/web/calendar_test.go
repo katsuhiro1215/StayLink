@@ -410,4 +410,97 @@ func TestCalendarOnlyAllowsGET(t *testing.T) {
 	}
 }
 
+// 空きマスだけが「この部屋・この日から登録」のリンクを持つ。予約のマスは持たない。
+func TestBuildCalendarEmptyCellsLinkToNewReservation(t *testing.T) {
+	v := buildCalendar(day(t, "2026-11-01"), day(t, "2026-11-05"), []room.Room{matsu},
+		[]reservation.Reservation{res(t, 1, "山田", "2026-11-10", "2026-11-13")})
+
+	empties, bookings := 0, 0
+	date := 1 // 各セルの先頭の日
+	for _, c := range v.Rows[0].Cells {
+		if c.Booking != nil {
+			bookings++
+			if c.NewURL != "" || c.NewText != "" {
+				t.Errorf("%d日：予約のマスにリンクがある", date)
+			}
+		} else {
+			empties++
+			want := fmt.Sprintf("/reservations/new?check_in=2026-11-%02d&room_id=1", date)
+			if c.NewURL != want {
+				t.Errorf("%d日：リンク = %q, 期待 %q", date, c.NewURL, want)
+			}
+		}
+		date += c.Span
+	}
+	if bookings != 1 || empties != 27 { // 30日 − 予約の3泊
+		t.Errorf("予約 %d・空き %d, 期待 1・27", bookings, empties)
+	}
+
+	first, last := v.Rows[0].Cells[0], v.Rows[0].Cells[len(v.Rows[0].Cells)-1]
+	if first.NewText != "松の間、11月1日に予約を登録" || last.NewText != "松の間、11月30日に予約を登録" {
+		t.Errorf("説明 = %q / %q", first.NewText, last.NewText)
+	}
+	// チェックアウト日（13日）は空いていて、そこから登録できる。
+	if want := "/reservations/new?check_in=2026-11-13&room_id=1"; !hasURL(v.Rows[0], want) {
+		t.Errorf("チェックアウト日のマスに %q がない", want)
+	}
+}
+
+func hasURL(row calRow, url string) bool {
+	for _, c := range row.Cells {
+		if c.NewURL == url {
+			return true
+		}
+	}
+	return false
+}
+
+// 画面（HTML）：リンクは、読み上げとキーボードの移動から外してある（マウス用）。数は空きマスと一致する。
+func TestCalendarEmptyCellLinksInHTML(t *testing.T) {
+	e := newEnv(t) // 松の間・竹の間（使用中）、梅の間（停止中）。今日は 2026-11-05
+	rec := get(e.h, "/calendar?month=2026-11")
+	body := rec.Body.String()
+
+	links := strings.Count(body, `class="cell-new"`)
+	if links != 60 { // 使用中の2部屋 × 30日（予約なし）
+		t.Errorf("空きマスのリンク = %d, 期待 60", links)
+	}
+	mustContain(t, rec, `href="/reservations/new?check_in=2026-11-01&amp;room_id=1"`)
+	mustContain(t, rec, `href="/reservations/new?check_in=2026-11-30&amp;room_id=2"`)
+	for _, attr := range []string{`tabindex="-1"`, `aria-hidden="true"`} {
+		if n := strings.Count(body, attr); n != links {
+			t.Errorf("%s は %d 個, 期待 %d（リンクと同数）", attr, n, links)
+		}
+	}
+}
+
+// 停止中の部屋は、登録画面で選べないので、予約があって行が出ていても、空きマスにリンクを付けない。
+func TestCalendarInactiveRoomHasNoLinks(t *testing.T) {
+	e := newEnv(t)
+	r := sample(t)
+	r.RoomID, r.RoomName = 3, "梅の間" // 停止中の部屋の予約（過去の記録）
+	e.seed(t, r)
+
+	rec := get(e.h, "/calendar?month=2026-11")
+	mustContain(t, rec, "梅の間（停止中）") // 行は出る
+	if strings.Contains(rec.Body.String(), "room_id=3") {
+		t.Error("停止中の部屋の空きマスに、登録のリンクがある")
+	}
+	if n := strings.Count(rec.Body.String(), `class="cell-new"`); n != 60 {
+		t.Errorf("リンク = %d, 期待 60（使用中の2部屋のみ）", n)
+	}
+}
+
+// 年をまたぐ月（12月）でも、日付と、月末・翌月初のリンクが合う。
+func TestBuildCalendarEmptyCellLinksDecember(t *testing.T) {
+	v := buildCalendar(day(t, "2026-12-01"), day(t, "2026-11-05"), []room.Room{matsu}, nil)
+	cells := v.Rows[0].Cells
+	if len(cells) != 31 {
+		t.Fatalf("マス = %d, 期待 31", len(cells))
+	}
+	if cells[30].NewURL != "/reservations/new?check_in=2026-12-31&room_id=1" || cells[30].NewText != "松の間、12月31日に予約を登録" {
+		t.Errorf("12/31 のリンク = %q %q", cells[30].NewURL, cells[30].NewText)
+	}
+}
+
 var errBoom = fmt.Errorf("boom")
