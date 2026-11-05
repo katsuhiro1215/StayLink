@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -19,6 +20,8 @@ type ReservationStore interface {
 	Create(ctx context.Context, r *reservation.Reservation) error
 	Update(ctx context.Context, r *reservation.Reservation) error
 	Cancel(ctx context.Context, id int64) error
+	// Overlapping は、重なった予約を案内するための検索（重なりを防ぐのは DB の排他制約）。
+	Overlapping(ctx context.Context, roomID int64, checkIn, checkOut time.Time, excludeID int64) ([]reservation.Reservation, error)
 }
 
 // formError は、特定の項目に結びつかないフォーム全体のエラーを入れるキー（Errors マップ内）。
@@ -151,6 +154,8 @@ func (s *server) reservationCreate(w http.ResponseWriter, r *http.Request) {
 		err := s.reservations.Create(r.Context(), &res)
 		if errors.Is(err, reservation.ErrRoomNotFound) {
 			errs["room_id"] = "選んだ部屋が見つかりません。"
+		} else if errors.Is(err, reservation.ErrOverlap) {
+			s.explainOverlap(r.Context(), &res, 0, errs)
 		} else if err != nil {
 			s.serverError(w, "予約の登録に失敗しました", err)
 			return
@@ -220,6 +225,8 @@ func (s *server) reservationUpdate(w http.ResponseWriter, r *http.Request) {
 			errs[formError] = "この予約は取り消されているため、変更できません。" // 特定の項目の誤りではない
 		case errors.Is(err, reservation.ErrRoomNotFound):
 			errs["room_id"] = "選んだ部屋が見つかりません。"
+		case errors.Is(err, reservation.ErrOverlap):
+			s.explainOverlap(r.Context(), &res, cur.ID, errs)
 		case err != nil:
 			s.serverError(w, "予約の更新に失敗しました", err)
 			return
@@ -266,6 +273,42 @@ func (s *server) reservationCancel(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Redirect(w, r, "/reservations?saved=cancelled", http.StatusSeeOther)
 	}
+}
+
+// japaneseRange は期間を「2026年11月10日〜11月13日」の形にする（年が同じなら、後ろの年は省く）。
+// 文中に入れるので、数字の途中で折り返されにくい日本語の書き方にしている。
+func japaneseRange(in, out time.Time) string {
+	if in.Year() == out.Year() {
+		return in.Format("2006年1月2日") + "〜" + out.Format("1月2日")
+	}
+	return in.Format("2006年1月2日") + "〜" + out.Format("2006年1月2日")
+}
+
+// explainOverlap は、期間が重なって断られたことを、どの予約と重なったかを添えて errs に入れる。
+// 重なった予約の検索に失敗しても、断られた事実は変わらないので、詳細なしの文面にする。
+func (s *server) explainOverlap(ctx context.Context, res *reservation.Reservation, excludeID int64, errs map[string]string) {
+	errs["check_in"] = "他の予約と期間が重なっています。"
+	errs[formError] = "この部屋は、その期間にすでに予約があります。日付か部屋を変えてください。"
+
+	conflicts, err := s.reservations.Overlapping(ctx, res.RoomID, res.CheckIn, res.CheckOut, excludeID)
+	if err != nil {
+		log.Printf("重なった予約の検索に失敗しました: %v", err)
+		return
+	}
+	if len(conflicts) == 0 {
+		return // 検索の間に取り消された、など。詳細なしの文面のままにする
+	}
+
+	const show = 3
+	var parts []string
+	for i, c := range conflicts {
+		if i == show {
+			parts = append(parts, "ほか"+strconv.Itoa(len(conflicts)-show)+"件")
+			break
+		}
+		parts = append(parts, c.GuestName+"さん（"+japaneseRange(c.CheckIn, c.CheckOut)+"）")
+	}
+	errs[formError] = "この部屋は、その期間に次の予約があります：" + strings.Join(parts, "、") + "。日付か部屋を変えてください。"
 }
 
 // checkRoom は、選んだ部屋が使えるかと、人数が定員内かを確かめて、誤りを errs に足す。

@@ -18,6 +18,7 @@ type fakeReservations struct {
 	items      []reservation.Reservation
 	nextID     int64
 	err        error
+	overlapErr error              // 設定すると、Overlapping（案内用の検索）だけが失敗する
 	lastFilter reservation.Filter // 直近の List に渡された条件
 }
 
@@ -45,9 +46,32 @@ func (f *fakeReservations) Get(_ context.Context, id int64) (reservation.Reserva
 	return reservation.Reservation{}, reservation.ErrNotFound
 }
 
+// overlapping は、同じ部屋で期間が重なる「予約中」の予約を返す（半開区間。excludeID は除く）。
+// 実物は DB の排他制約と Overlapping の SQL が行う。ここは同じ意味の簡易版。
+func (f *fakeReservations) overlapping(roomID int64, in, out time.Time, excludeID int64) []reservation.Reservation {
+	var hit []reservation.Reservation
+	for _, it := range f.items {
+		if it.RoomID == roomID && it.Status == reservation.StatusReserved && it.ID != excludeID &&
+			it.CheckIn.Before(out) && in.Before(it.CheckOut) {
+			hit = append(hit, it)
+		}
+	}
+	return hit
+}
+
+func (f *fakeReservations) Overlapping(_ context.Context, roomID int64, in, out time.Time, excludeID int64) ([]reservation.Reservation, error) {
+	if f.overlapErr != nil {
+		return nil, f.overlapErr
+	}
+	return f.overlapping(roomID, in, out, excludeID), nil
+}
+
 func (f *fakeReservations) Create(_ context.Context, r *reservation.Reservation) error {
 	if f.err != nil {
 		return f.err
+	}
+	if len(f.overlapping(r.RoomID, r.CheckIn, r.CheckOut, 0)) > 0 {
+		return reservation.ErrOverlap
 	}
 	f.nextID++
 	r.ID, r.Status = f.nextID, reservation.StatusReserved
@@ -64,6 +88,9 @@ func (f *fakeReservations) Update(_ context.Context, r *reservation.Reservation)
 		return reservation.ErrNotFound
 	case f.items[i].Status == reservation.StatusCancelled:
 		return reservation.ErrNotEditable
+	}
+	if len(f.overlapping(r.RoomID, r.CheckIn, r.CheckOut, r.ID)) > 0 {
+		return reservation.ErrOverlap
 	}
 	r.Status = f.items[i].Status
 	f.items[i] = *r
