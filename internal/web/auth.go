@@ -9,9 +9,9 @@ package web
 import (
 	"context"
 	"errors"
-	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,7 +46,13 @@ type authConfig struct {
 	sessions     SessionStore
 	secureCookie bool // HTTPS のときだけ送る印（Secure）を、常に付ける
 	limiter      *limiter
+	// slots は、同時に走らせるパスワードの照合の数の上限。照合は重い（CPUを使う）ので、
+	// 大量の同時要求で、サーバーが他の処理をできなくなるのを防ぐ。満杯なら、待たせずに 503 を返す。
+	slots chan struct{}
 }
+
+// maxConcurrentLogins は、同時に照合できる数。
+const maxConcurrentLogins = 4
 
 // option は newHandler の設定。
 type option func(*server)
@@ -54,7 +60,10 @@ type option func(*server)
 // withAuth は、ログインを求めるようにする。secureCookie は、HTTPS で使うときに true（r.TLS があるときは、常に Secure を付ける）。
 func withAuth(users Authenticator, sessions SessionStore, secureCookie bool) option {
 	return func(s *server) {
-		s.auth = &authConfig{users: users, sessions: sessions, secureCookie: secureCookie, limiter: newLimiter()}
+		s.auth = &authConfig{
+			users: users, sessions: sessions, secureCookie: secureCookie,
+			limiter: newLimiter(), slots: make(chan struct{}, maxConcurrentLogins),
+		}
 	}
 }
 
@@ -73,18 +82,11 @@ func safeNext(next string) string {
 	if err != nil || u.IsAbs() || u.Host != "" || u.User != nil {
 		return "/"
 	}
-	if u.Path == "/login" || strings.HasPrefix(u.Path, "/login/") || strings.HasPrefix(u.Path, "/static/") {
+	// ログイン画面・ログアウト（POST専用）・静的ファイルへは戻さない（戻ると、404 や 405 の画面になる）。
+	if u.Path == "/login" || strings.HasPrefix(u.Path, "/login/") || u.Path == "/logout" || strings.HasPrefix(u.Path, "/static/") {
 		return "/"
 	}
 	return next
-}
-
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
 }
 
 // currentUser は、Cookie のセッションから、ログイン中のユーザーを返す。ok=false は、未ログイン。
@@ -180,26 +182,36 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	next := safeNext(r.PostForm.Get("next"))
 	form := loginForm{Username: username, Next: next}
 	now := s.now()
-	ip := clientIP(r)
+	ip := clientKey(r)
 
+	// 試行を、照合の「前」に数える（照合は重いので、後で数えると、同時に届いた要求がすべてすり抜ける）。
 	// ロック中は、正しいパスワードでも拒否する。照合（重い計算）もしない。
-	if locked, _ := s.auth.limiter.Locked(ip, now); locked {
+	if ok, retryAfter := s.auth.limiter.Reserve(ip, now); !ok {
+		w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
 		form.Error = msgLocked
 		s.renderLogin(w, http.StatusTooManyRequests, form)
 		return
 	}
 
-	// 長すぎる入力は、ハッシュ計算をせずに、違うものとして扱う（失敗に数える）。
+	// 長すぎる入力は、ハッシュ計算をせずに、違うものとして扱う（試行には、すでに数えてある）。
 	var u user.User
 	var err error
 	if len(username) > maxUsernameBytes || len(password) > maxPasswordBytes {
 		err = user.ErrInvalidCredentials
 	} else {
-		u, err = s.auth.users.Authenticate(r.Context(), username, password)
+		// 同時に照合できる数には上限がある。満杯なら、待たせずに 503（CPUを使い切られないため）。
+		select {
+		case s.auth.slots <- struct{}{}:
+			u, err = s.auth.users.Authenticate(r.Context(), username, password)
+			<-s.auth.slots
+		default:
+			w.Header().Set("Retry-After", "1")
+			http.Error(w, "混み合っています。少し待ってから、もう一度お試しください。", http.StatusServiceUnavailable)
+			return
+		}
 	}
 	switch {
 	case errors.Is(err, user.ErrInvalidCredentials):
-		s.auth.limiter.Fail(ip, now)
 		form.Error = msgInvalidCredentials // 理由は区別しない（ユーザーの有無を教えない）。パスワードは入れ直してもらう
 		s.renderLogin(w, http.StatusUnauthorized, form)
 		return

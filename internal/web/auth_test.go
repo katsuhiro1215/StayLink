@@ -488,7 +488,7 @@ func TestLoginFailuresExpireAfterWindow(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		e.do("POST", "/login", bad, "", ip)
 	}
-	e.now = e.now.Add(failureWindow)
+	e.now = e.now.Add(attemptWindow)
 	for i := 0; i < 4; i++ { // 窓が切れて数え直し：あと4回失敗してもロックされない
 		if rec := e.do("POST", "/login", bad, "", ip); rec.Code != http.StatusUnauthorized {
 			t.Fatalf("窓のあとの %d 回目：%d, 期待 401", i+1, rec.Code)
@@ -567,13 +567,13 @@ func TestLimiterSweepKeepsMemoryBounded(t *testing.T) {
 	l := newLimiter()
 	now := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
 	for i := 0; i < maxLimiterKeys+500; i++ {
-		l.Fail("ip-"+strconv.Itoa(i), now)
+		l.Reserve("ip-"+strconv.Itoa(i), now)
 	}
 	if n := len(l.entries); n > maxLimiterKeys {
 		t.Errorf("記録の数 = %d, 上限 %d を超えた", n, maxLimiterKeys)
 	}
 	// 窓が切れたものは、掃除で消える。
-	l.Fail("new", now.Add(failureWindow))
+	l.Reserve("new", now.Add(attemptWindow))
 	if n := len(l.entries); n > 2 {
 		t.Errorf("期限切れの掃除をしていない: %d", n)
 	}

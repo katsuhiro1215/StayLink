@@ -1,29 +1,36 @@
 package web
 
 import (
+	"net"
+	"net/http"
+	"net/netip"
 	"sync"
 	"time"
 )
 
-// ログインの失敗の回数制限（総当たりへの対策）。接続元のIPアドレスごとに数える。メモリ内だけ（再起動で消える）。
+// ログインの回数制限（総当たりへの対策）。接続元のIPアドレスごとに数える。メモリ内だけ（再起動で消える）。
 //
-//   - 窓の15分のあいだに5回失敗したら、そこから15分ロックする。
-//   - ロック中は、正しいパスワードでも拒否する（ロックしないと、総当たりが止まらないため）。
-//   - 成功したら、そのIPの記録を消す。
+//   - 窓の15分のあいだに、試行を5回まで許す。5回目の試行が始まった時点で、そこから15分ロックする。
+//   - 試行は、照合の「前」に数える（Reserve）。照合は重い（約0.2秒）ので、後で数えると、
+//     その間に同時に届いた要求が、すべて制限をすり抜けてしまうため。
+//   - ロック中は、正しいパスワードでも拒否する。成功したら、そのIPの記録を消す（Reset）。
+//   - IPv6 は、先頭64ビット（/64）を1つのIPとして数える（端末は /64 の中の多数のアドレスを使えるため）。
 //
 // 限界：
 //   - 同じIPを共有する人（NAT）を巻き込む。リバースプロキシ越しだと、全員が同じIPに見える（X-Forwarded-For は信用しない）。
-//   - 攻撃者が自分のIPでロックしても、他のIPからの正しいログインは止まらない。ただし、管理者と同じIPからの攻撃は、管理者を締め出す。
+//     その場合、LAN内の誰か1人の失敗で、管理者もロックされる。解除は、サーバーの再起動（メモリ上の記録が消える）。
 //   - 多数のIPから少しずつ試す攻撃は、IPごとの制限では止まらない（パスワードの強さと、ハッシュの重さで守る）。
+//   - 記録するIPは1万件まで。ロック中の記録は、掃除でも消さない。全部がロック中で満杯のときに来た新しいIPは、
+//     記録されず、制限なしで通る（メモリを守るための割り切り）。
 const (
-	maxFailures    = 5
-	failureWindow  = 15 * time.Minute
+	maxAttempts    = 5
+	attemptWindow  = 15 * time.Minute
 	lockDuration   = 15 * time.Minute
-	maxLimiterKeys = 10_000 // 記録するIPの上限。超えたら、期限の切れたものを掃除する
+	maxLimiterKeys = 10_000
 )
 
 type attempt struct {
-	failures    int
+	count       int
 	windowStart time.Time
 	lockedUntil time.Time
 }
@@ -35,37 +42,35 @@ type limiter struct {
 
 func newLimiter() *limiter { return &limiter{entries: map[string]*attempt{}} }
 
-// Locked は、いま（now）ロック中か。ロック中なら、解除される時刻も返す。
-func (l *limiter) Locked(key string, now time.Time) (bool, time.Time) {
+// Reserve は、試行を1回、先に数える。許可なら ok=true。ロック中なら ok=false と、解除までの時間を返す。
+// 許可した試行が、窓の中で上限（maxAttempts）に達したら、そこからロックする（その試行自体は許可する）。
+func (l *limiter) Reserve(key string, now time.Time) (ok bool, retryAfter time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	a := l.entries[key]
 	if a != nil && now.Before(a.lockedUntil) {
-		return true, a.lockedUntil
+		return false, a.lockedUntil.Sub(now)
 	}
-	return false, time.Time{}
-}
-
-// Fail は、失敗を1回記録する。上限に達したら、ロックする。
-func (l *limiter) Fail(key string, now time.Time) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if len(l.entries) >= maxLimiterKeys {
-		l.sweep(now)
-	}
-	a := l.entries[key]
 	if a == nil {
+		if len(l.entries) >= maxLimiterKeys {
+			l.sweep(now)
+		}
+		if len(l.entries) >= maxLimiterKeys {
+			return true, 0 // 全部がロック中で満杯：記録せずに通す（上の限界を参照）
+		}
 		a = &attempt{}
 		l.entries[key] = a
 	}
-	if a.failures == 0 || !now.Before(a.windowStart.Add(failureWindow)) {
-		a.failures, a.windowStart = 0, now // 窓が切れていたら、数え直す
+	if a.count == 0 || !now.Before(a.windowStart.Add(attemptWindow)) {
+		a.count, a.windowStart = 0, now // 窓が切れていたら、数え直す
 	}
-	a.failures++
-	if a.failures >= maxFailures {
+	a.count++
+	if a.count >= maxAttempts {
 		a.lockedUntil = now.Add(lockDuration)
-		a.failures = 0
+		a.count = 0
 	}
+	return true, 0
 }
 
 // Reset は、成功したIPの記録を消す。
@@ -76,22 +81,46 @@ func (l *limiter) Reset(key string) {
 }
 
 // sweep は、ロックも窓も切れた記録を消す。呼ぶ側が mu を持っていること。
-// 掃除しても上限を超えたままなら（全部が有効）、新しい記録を増やさないよう、いちばん古い窓のものを消す。
+// ロック中の記録は消さない（大量のIPで押し出して、ロックを外されないように）。
 func (l *limiter) sweep(now time.Time) {
 	for k, a := range l.entries {
-		if !now.Before(a.lockedUntil) && !now.Before(a.windowStart.Add(failureWindow)) {
+		if !now.Before(a.lockedUntil) && !now.Before(a.windowStart.Add(attemptWindow)) {
 			delete(l.entries, k)
 		}
 	}
 	if len(l.entries) < maxLimiterKeys {
 		return
 	}
+	// まだ満杯：ロック中でない記録のうち、窓がいちばん古いものを1つ消す。
 	var oldestKey string
 	var oldest time.Time
 	for k, a := range l.entries {
+		if now.Before(a.lockedUntil) {
+			continue
+		}
 		if oldestKey == "" || a.windowStart.Before(oldest) {
 			oldestKey, oldest = k, a.windowStart
 		}
 	}
-	delete(l.entries, oldestKey)
+	if oldestKey != "" {
+		delete(l.entries, oldestKey)
+	}
+}
+
+// clientKey は、回数制限に使う、接続元のキー。ポート番号は除く。IPv4-mapped IPv6 は IPv4 に戻し、
+// IPv6 は /64 に丸める。解釈できないときは、アドレスの文字列そのまま。
+func clientKey(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return host
+	}
+	addr = addr.Unmap()
+	if addr.Is6() {
+		return netip.PrefixFrom(addr, 64).Masked().String()
+	}
+	return addr.String()
 }

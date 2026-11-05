@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -98,5 +99,7 @@ func (s *Store) rehashIfWeak(ctx context.Context, id int64, password, old string
 	if err != nil {
 		return
 	}
-	_, _ = s.db.ExecContext(ctx, `UPDATE users SET password_hash = $2 WHERE id = $1 AND password_hash = $3`, id, fresh, old)
+	if _, err := s.db.ExecContext(ctx, `UPDATE users SET password_hash = $2 WHERE id = $1 AND password_hash = $3`, id, fresh, old); err != nil {
+		log.Printf("user: パスワードのハッシュの作り直しに失敗しました（ユーザーID %d。ログインは成功。次の機会にやり直します）: %v", id, err)
+	}
 }
