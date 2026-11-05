@@ -139,12 +139,13 @@ func buildCells(rm room.Room, days []calDay, monthStart, nextStart time.Time, bo
 	var cells []calCell
 	empty := func(from, to int) {
 		for i := from; i < to; i++ {
-			date := monthStart.AddDate(0, 0, i)
-			cells = append(cells, calCell{
-				Span: 1, Weekend: days[i].Weekend, Today: days[i].Today,
-				NewURL:  newReservationURL(rm.ID, date),
-				NewText: fmt.Sprintf("%s、%d月%d日に予約を登録", rm.Name, int(date.Month()), date.Day()),
-			})
+			c := calCell{Span: 1, Weekend: days[i].Weekend, Today: days[i].Today}
+			if rm.IsActive { // 停止中の部屋は、登録画面で選べないので、リンクを付けない
+				date := monthStart.AddDate(0, 0, i)
+				c.NewURL = newReservationURL(rm.ID, date)
+				c.NewText = fmt.Sprintf("%s、%d月%d日に予約を登録", rm.Name, int(date.Month()), date.Day())
+			}
+			cells = append(cells, c)
 		}
 	}
 

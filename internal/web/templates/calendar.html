@@ -33,7 +33,7 @@
         <a href="/reservations/{{.Booking.ID}}/edit" title="{{.Booking.Label}}" aria-label="{{.Booking.Label}}">{{.Booking.Guest}}</a>
       </td>
       {{else}}
-      <td class="empty{{if .Weekend}} weekend{{end}}{{if .Today}} today{{end}}"><a class="cell-new" href="{{.NewURL}}" title="{{.NewText}}" tabindex="-1" aria-hidden="true"></a></td>
+      <td class="empty{{if .Weekend}} weekend{{end}}{{if .Today}} today{{end}}">{{if .NewURL}}<a class="cell-new" href="{{.NewURL}}" title="{{.NewText}}" tabindex="-1" aria-hidden="true"></a>{{end}}</td>
       {{end}}
       {{end}}
     </tr>
