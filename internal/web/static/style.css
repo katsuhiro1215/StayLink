@@ -63,6 +63,9 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
 }
 .panel h2 { margin: 0 0 0.5rem; font-size: 1.25rem; }
 .panel p { margin: 0; }
+.today-block { margin: 2rem 0 0; }
+.today-block + .actions { margin-top: 2rem; }
+.today-block h2 { margin: 0 0 0.75rem; font-size: 1.25rem; }
 
 /* 画面の読み上げ専用の文字（見た目には出さない） */
 .visually-hidden {
