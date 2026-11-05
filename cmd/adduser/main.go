@@ -1,10 +1,13 @@
 // adduser は、ログインする管理者を1人作る。画面に登録の機能は作らないので、ここで作る。
 //
-// 使い方（パスワードは標準入力から1行。コマンドの引数や履歴に残さないため）：
+// 使い方（パスワードは標準入力から1行。コマンドの引数に出ないので、ps では見えない）：
 //
 //	set -a; . ./.env; set +a
-//	printf '%s\n' 'ここにパスワード' | go run ./cmd/adduser -username admin
+//	read -rsp 'パスワード: ' PW; echo
+//	printf '%s\n' "$PW" | go run ./cmd/adduser -username admin
+//	unset PW
 //
+// printf にパスワードを直接書くと、シェルの履歴に残る。read -s なら、画面にも履歴にも残らない。
 // 標準ライブラリには、入力を画面に出さずに読む機能がないので、標準入力で渡す。
 package main
 
@@ -64,7 +67,7 @@ func run(username string, in io.Reader, databaseURL string) error {
 
 // readPassword は標準入力の1行目を、パスワードとして返す（末尾の改行だけ除く。空白は、パスワードの一部として残す）。
 func readPassword(in io.Reader) (string, error) {
-	line, err := bufio.NewReader(in).ReadString('\n')
+	line, err := bufio.NewReader(io.LimitReader(in, 4096)).ReadString('\n')
 	if err != nil && !(errors.Is(err, io.EOF) && line != "") {
 		return "", errors.New("標準入力からパスワードを読めませんでした（例：printf '%s\\n' 'パスワード' | go run ./cmd/adduser -username admin）")
 	}

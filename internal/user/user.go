@@ -22,8 +22,18 @@ type User struct {
 // 入力と migrations/004 の CHECK を同じにする。
 var usernamePattern = regexp.MustCompile(`^[a-z0-9._-]{3,32}$`)
 
-// NormalizeUsername は、前後の空白を除いて、小文字にする（大文字小文字を区別しない）。
-func NormalizeUsername(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
+// NormalizeUsername は、前後の空白を除いて、ASCII の大文字だけを小文字にする（大文字小文字を区別しない）。
+// strings.ToLower は使わない：ケルビン記号（U+212A）のような非ASCIIまで、ASCII の小文字に畳んでしまい、
+// 見た目の違う文字が、ASCII のユーザー名として通ってしまうため。
+func NormalizeUsername(s string) string {
+	b := []byte(strings.TrimSpace(s))
+	for i, c := range b {
+		if c >= 'A' && c <= 'Z' {
+			b[i] = c + ('a' - 'A')
+		}
+	}
+	return string(b)
+}
 
 // ValidateUsername は、整えたあとのユーザー名を確かめる。
 func ValidateUsername(s string) error {

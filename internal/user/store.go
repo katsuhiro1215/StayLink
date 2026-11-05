@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -25,11 +24,13 @@ type DBTX interface {
 // Store は PostgreSQL にユーザーを保存する。
 type Store struct {
 	db DBTX
-
-	// dummyHash は、存在しないユーザー名でも、同じ重さのハッシュ計算をするための、使い捨てのハッシュ。
-	dummyOnce sync.Once
-	dummyHash string
 }
+
+// dummyHash は、存在しないユーザー名でも、同じ重さのハッシュ計算をするための、固定の有効なハッシュ。
+// 実行時に作らない：作るのに失敗すると、存在しないユーザーの応答だけが速くなり、有無が分かってしまうため。
+// 現行の回数（iterations）で作ってある。回数を変えたら作り直す（TestDummyHashMatchesCurrentIterations が気づかせる）。
+// 元の文字列は、どこにも使わない値。
+const dummyHash = "pbkdf2-sha256$600000$o3cVasF7PCEZHdV4u2Urqg$rT1Tj0ydkDi_2BAEnNEjVGTyubpg7iAXLeYzbdU6Gps"
 
 func NewStore(db DBTX) *Store { return &Store{db: db} }
 
@@ -70,7 +71,7 @@ func (s *Store) Authenticate(ctx context.Context, username, password string) (Us
 	err := s.db.QueryRowContext(ctx, `SELECT id, password_hash FROM users WHERE username = $1`, username).Scan(&u.ID, &hash)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		_, _ = VerifyPassword(password, s.dummy())
+		_, _ = VerifyPassword(password, dummyHash)
 		return User{}, ErrInvalidCredentials
 	case err != nil:
 		return User{}, fmt.Errorf("user: 照合: %w", err)
@@ -83,15 +84,4 @@ func (s *Store) Authenticate(ctx context.Context, username, password string) (Us
 		return User{}, ErrInvalidCredentials
 	}
 	return u, nil
-}
-
-func (s *Store) dummy() string {
-	s.dummyOnce.Do(func() {
-		h, err := HashPassword("dummy-password-for-timing")
-		if err != nil {
-			h = "" // 形式不正になり、検証が即座に失敗するだけ（動作は変わらない）
-		}
-		s.dummyHash = h
-	})
-	return s.dummyHash
 }

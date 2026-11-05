@@ -2,6 +2,7 @@ package user
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -141,6 +142,17 @@ func TestUsersTableConstraints(t *testing.T) {
 	}
 }
 
+// ダミーのハッシュは、形式が有効で、現行の回数（iterations）と同じ。回数を変えたのに作り直し忘れると、ここで落ちる。
+func TestDummyHashMatchesCurrentIterations(t *testing.T) {
+	want := "pbkdf2-sha256$" + strconv.Itoa(iterations) + "$"
+	if !strings.HasPrefix(dummyHash, want) {
+		t.Errorf("dummyHash の回数が現行（%d）と違う: %q", iterations, dummyHash)
+	}
+	if ok, err := VerifyPassword("some-other-password", dummyHash); err != nil || ok {
+		t.Errorf("VerifyPassword = %v, %v（形式が有効で、別のパスワードは不一致のはず）", ok, err)
+	}
+}
+
 // ユーザーがいない場合も、同じ重さの計算をする（応答時間でユーザーの有無を推測されにくくする）。
 // 時間の比較は不安定になりうるので、「桁違いに速くない」ことだけを確かめる。
 func TestAuthenticateUnknownUserDoesComparableWork(t *testing.T) {
@@ -149,7 +161,6 @@ func TestAuthenticateUnknownUserDoesComparableWork(t *testing.T) {
 	if _, err := s.Create(ctx, "admin", "correct-horse-battery"); err != nil {
 		t.Fatal(err)
 	}
-	s.dummy() // 最初の1回のハッシュ計算（dummyHash の作成）を、計測から外す
 
 	timeIt := func(username string) time.Duration {
 		start := time.Now()

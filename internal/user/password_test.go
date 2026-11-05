@@ -132,30 +132,37 @@ func TestValidatePassword(t *testing.T) {
 
 func TestUsernameNormalizeAndValidate(t *testing.T) {
 	tests := []struct {
+		name    string
 		in      string
-		want    string
+		want    string // 整えたあとの値
 		wantErr bool
 	}{
-		{"admin", "admin", false},
-		{"  Admin  ", "admin", false},
-		{"ADMIN", "admin", false},
-		{"a.b_c-d9", "a.b_c-d9", false},
-		{"ab", "ab", true},                               // 短い
-		{strings.Repeat("a", 33), "", true},              // 長い（want は使わない）
-		{"管理者", "管理者", true},                             // 英小文字・数字以外
-		{"ad min", "ad min", true},                       // 空白を含む
-		{"admin@example.com", "admin@example.com", true}, // @ は不可
-		{"", "", true},
+		{"そのまま", "admin", "admin", false},
+		{"前後の空白は除く", "  Admin  ", "admin", false},
+		{"大文字は小文字に", "ADMIN", "admin", false},
+		{"記号と数字", "a.b_c-d9", "a.b_c-d9", false},
+		{"短い", "ab", "ab", true},
+		{"長い（33文字）", strings.Repeat("a", 33), strings.Repeat("a", 33), true},
+		{"32文字ちょうど", strings.Repeat("a", 32), strings.Repeat("a", 32), false},
+		{"日本語", "管理者です", "管理者です", true},
+		{"空白を含む", "ad min", "ad min", true},
+		{"@は不可", "admin@example.com", "admin@example.com", true},
+		{"空", "", "", true},
+		{"途中に改行", "admin\nx", "admin\nx", true},
+		// strings.ToLower だと、ケルビン記号（U+212A）が ASCII の k に畳まれて、検証を通ってしまう。
+		{"ケルビン記号", "Kenji", "Kenji", true},
+		{"ドット付きのİ", "İris", "İris", true},
+		{"全角の英字", "ａｄｍｉｎ", "ａｄｍｉｎ", true},
 	}
 	for _, tt := range tests {
-		got := NormalizeUsername(tt.in)
-		if !tt.wantErr || tt.want != "" {
-			if tt.want != "" && got != tt.want {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NormalizeUsername(tt.in)
+			if got != tt.want {
 				t.Errorf("Normalize(%q) = %q, 期待 %q", tt.in, got, tt.want)
 			}
-		}
-		if err := ValidateUsername(got); (err != nil) != tt.wantErr {
-			t.Errorf("Validate(%q) = %v, 誤りを期待=%v", got, err, tt.wantErr)
-		}
+			if err := ValidateUsername(got); (err != nil) != tt.wantErr {
+				t.Errorf("Validate(%q) = %v, 誤りを期待=%v", got, err, tt.wantErr)
+			}
+		})
 	}
 }
