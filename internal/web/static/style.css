@@ -1,0 +1,70 @@
+/* StayLink 共通スタイル。カラーは company/rules.md（リッチブラック／ゴールド／ライトグリーン）に合わせる */
+:root {
+  --bg: #0d0d0d;
+  --bg-side: #141414;
+  --bg-panel: #1a1a1a;
+  --line: #2e2e2e;
+  --text: #f1efe8;
+  --text-sub: #b9b5a8;
+  --gold: #e6b800;
+  --green: #8fd36b;
+  color-scheme: dark; /* フォーム部品やスクロールバーも暗い配色にする */
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+  font-size: 1.0625rem; /* 17px 相当。ブラウザの文字サイズ設定に追従する */
+  line-height: 1.8;
+}
+
+a { color: var(--gold); }
+a:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; }
+
+/* 左にメニュー、右に本文。本文は左寄せで広く使う */
+.shell { display: grid; grid-template-columns: 15rem 1fr; min-height: 100vh; }
+
+.side {
+  background: var(--bg-side);
+  border-right: 1px solid var(--line);
+  padding: 2rem 1.5rem;
+}
+.brand { color: var(--gold); font-size: 1.5rem; font-weight: 700; text-decoration: none; }
+.brand-sub { margin: 0.25rem 0 2rem; color: var(--text-sub); }
+
+.nav { list-style: none; margin: 0; padding: 0; }
+.nav a {
+  display: block;
+  padding: 0.6rem 0.9rem;
+  border-left: 4px solid transparent;
+  color: var(--text);
+  text-decoration: none;
+}
+.nav a:hover { background: var(--bg-panel); }
+.nav a[aria-current="page"] { border-left-color: var(--green); color: var(--green); font-weight: 700; }
+
+.main { padding: 2.5rem 3rem; }
+.page-title { margin: 0 0 1.5rem; font-size: 1.9rem; }
+.lead { max-width: 40rem; margin: 0 0 2rem; font-size: 1.1rem; }
+
+.panel {
+  max-width: 44rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--gold);
+  padding: 1.25rem 1.5rem;
+}
+.panel h2 { margin: 0 0 0.5rem; font-size: 1.25rem; }
+.panel p { margin: 0; }
+
+/* 画面が狭いときはメニューを上に出す */
+@media (max-width: 40rem) {
+  .shell { grid-template-columns: 1fr; }
+  .side { border-right: 0; border-bottom: 1px solid var(--line); padding: 1rem 1.25rem; }
+  .brand-sub { margin-bottom: 1rem; }
+  .main { padding: 1.5rem 1.25rem; }
+}

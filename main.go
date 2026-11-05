@@ -1,16 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
+
+	"github.com/katsuhiro1215/StayLink/internal/web"
 )
 
 func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "StayLink: hello, Go")
-	})
+	handler, err := web.NewHandler()
+	if err != nil {
+		log.Fatalf("画面の準備に失敗しました: %v", err)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -18,5 +21,10 @@ func main() {
 	}
 	addr := ":" + port
 	log.Printf("起動します http://localhost%s", addr)
-	log.Fatal(http.ListenAndServe(addr, nil))
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second, // 接続だけ張って送らない相手を切る
+	}
+	log.Fatal(srv.ListenAndServe())
 }
