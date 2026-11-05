@@ -127,11 +127,23 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-func TestValidateTrimsText(t *testing.T) {
+func TestNormalizeTrimsText(t *testing.T) {
 	r := valid(t)
 	r.GuestName, r.Contact, r.Note = "  山田  ", " 090 ", "  メモ  "
-	r.Validate(4)
+	r.Normalize()
 	if r.GuestName != "山田" || r.Contact != "090" || r.Note != "メモ" {
 		t.Errorf("Trim されていない: %q %q %q", r.GuestName, r.Contact, r.Note)
+	}
+}
+
+// Validate は検証だけで、値を書き換えない。前後の空白は無視して調べる。
+func TestValidateDoesNotModify(t *testing.T) {
+	r := valid(t)
+	r.GuestName, r.Contact, r.Note = "  山田  ", " 090 ", "  メモ  "
+	if errs := r.Validate(4); len(errs) != 0 {
+		t.Fatalf("前後に空白があっても誤りではない: %v", errs)
+	}
+	if r.GuestName != "  山田  " || r.Contact != " 090 " || r.Note != "  メモ  " {
+		t.Errorf("Validate が値を書き換えた: %q %q %q", r.GuestName, r.Contact, r.Note)
 	}
 }

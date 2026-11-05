@@ -259,21 +259,4 @@ func TestStoreListFilterAndOrder(t *testing.T) {
 	}
 }
 
-// 現状の限界を記録するテスト：段階3では、同じ部屋で期間が重なる予約も登録できてしまう。
-// 段階4で排他制約を入れたら、このテストは「重複は拒否される」に書き換える。
-func TestStoreCurrentlyAllowsOverlap(t *testing.T) {
-	f := newFixture(t)
-	ctx := context.Background()
-
-	a := f.newReservation(t, "2026-11-05", "2026-11-08")
-	b := f.newReservation(t, "2026-11-06", "2026-11-09")
-	for _, r := range []*Reservation{a, b} {
-		if err := f.store.Create(ctx, r); err != nil {
-			t.Fatalf("段階3では重複も登録できるはず: %v", err)
-		}
-	}
-	list, _ := f.store.List(ctx, Filter{})
-	if len(list) != 2 {
-		t.Errorf("件数 = %d, 期待 2", len(list))
-	}
-}
+// 重複の防止（旧：TestStoreCurrentlyAllowsOverlap）は、段階4で overlap_test.go に移した。

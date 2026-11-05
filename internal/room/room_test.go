@@ -44,10 +44,21 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-func TestValidateTrimsName(t *testing.T) {
+func TestNormalizeTrimsName(t *testing.T) {
 	r := Room{Name: "  竹の間  ", Capacity: 2}
-	r.Validate()
+	r.Normalize()
 	if r.Name != "竹の間" {
 		t.Errorf("Name = %q, 期待 %q", r.Name, "竹の間")
+	}
+}
+
+// Validate は検証だけで、値を書き換えない。
+func TestValidateDoesNotModify(t *testing.T) {
+	r := Room{Name: "  竹の間  ", Capacity: 2}
+	if errs := r.Validate(); len(errs) != 0 {
+		t.Fatalf("前後に空白があっても誤りではない: %v", errs)
+	}
+	if r.Name != "  竹の間  " {
+		t.Errorf("Validate が Name を書き換えた: %q", r.Name)
 	}
 }
