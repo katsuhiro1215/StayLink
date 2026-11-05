@@ -35,17 +35,24 @@ func hasControl(s string) bool {
 	return strings.IndexFunc(s, unicode.IsControl) >= 0
 }
 
-// Validate は入力の誤りを項目名ごとに返す。誤りがなければ空。
-func (r *Room) Validate() map[string]string {
+// Normalize は名前の前後の空白を取り除く。保存する前に呼ぶ。
+// Validate は値を書き換えない（検証だけ）ので、整える処理はここに分けている。
+func (r *Room) Normalize() {
+	r.Name = strings.TrimSpace(r.Name)
+}
+
+// Validate は入力の誤りを項目名ごとに返す。誤りがなければ空。値は書き換えない。
+// 前後の空白は無視して調べる（空白だけの名前は「空」として誤りにする）。
+func (r Room) Validate() map[string]string {
 	errs := map[string]string{}
 
-	r.Name = strings.TrimSpace(r.Name)
+	name := strings.TrimSpace(r.Name)
 	switch {
-	case r.Name == "":
+	case name == "":
 		errs["name"] = "部屋の名前を入力してください。"
-	case utf8.RuneCountInString(r.Name) > MaxNameLen:
+	case utf8.RuneCountInString(name) > MaxNameLen:
 		errs["name"] = "部屋の名前は50文字以内にしてください。"
-	case !utf8.ValidString(r.Name) || hasControl(r.Name):
+	case !utf8.ValidString(name) || hasControl(name):
 		// 不正なバイト列や NUL は PostgreSQL が拒否して 500 になるので、先に弾く。改行・タブも不要。
 		errs["name"] = "部屋の名前に使えない文字が含まれています。"
 	}

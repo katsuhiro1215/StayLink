@@ -361,6 +361,7 @@ func readReservationForm(w http.ResponseWriter, r *http.Request) (form reservati
 		CheckIn: v("check_in"), CheckOut: v("check_out"), NumGuests: v("num_guests"), Note: v("note"),
 	}
 	res = reservation.Reservation{GuestName: form.GuestName, Contact: form.Contact, Note: form.Note}
+	res.Normalize()
 
 	// 数字・日付として読めないものは、ここで項目の誤りにする（読めた分だけ Validate に渡す）。
 	errs = map[string]string{}

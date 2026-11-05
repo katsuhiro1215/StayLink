@@ -35,6 +35,8 @@ var (
 	ErrNotEditable = errors.New("reservation: 取消済みの予約は変更できません")
 	// ErrRoomNotFound は存在しない部屋を指定したことを表す。
 	ErrRoomNotFound = errors.New("reservation: 部屋が見つかりません")
+	// ErrOverlap は、同じ部屋で期間が重なる予約があることを表す（二重予約）。
+	ErrOverlap = errors.New("reservation: その期間は、この部屋にすでに予約があります")
 )
 
 // Reservation は予約。日付は UTC の 0 時の time.Time で持ち、時刻は意味を持たない。
@@ -62,35 +64,43 @@ func ParseDate(s string) (time.Time, error) {
 	return time.ParseInLocation(DateLayout, s, time.UTC)
 }
 
-// Validate は入力の誤りを項目名ごとに返す。誤りがなければ空。
+// Normalize は文字の前後の空白を取り除く。保存する前に呼ぶ。
+// Validate は値を書き換えない（検証だけ）ので、整える処理はここに分けている。
+func (r *Reservation) Normalize() {
+	r.GuestName = strings.TrimSpace(r.GuestName)
+	r.Contact = strings.TrimSpace(r.Contact)
+	r.Note = strings.TrimSpace(r.Note)
+}
+
+// Validate は入力の誤りを項目名ごとに返す。誤りがなければ空。値は書き換えない。
+// 前後の空白は無視して調べる（空白だけの名前は「空」として誤りにする）。
 // roomCapacity は選んだ部屋の定員で、人数がそれを超えていないかを確かめる（0 以下なら確かめない）。
-// 前後の空白は取り除く。
-func (r *Reservation) Validate(roomCapacity int) map[string]string {
+func (r Reservation) Validate(roomCapacity int) map[string]string {
 	errs := map[string]string{}
 
-	r.GuestName = strings.TrimSpace(r.GuestName)
+	name := strings.TrimSpace(r.GuestName)
 	switch {
-	case r.GuestName == "":
+	case name == "":
 		errs["guest_name"] = "宿泊者の名前を入力してください。"
-	case utf8.RuneCountInString(r.GuestName) > MaxNameLen:
+	case utf8.RuneCountInString(name) > MaxNameLen:
 		errs["guest_name"] = "宿泊者の名前は50文字以内にしてください。"
-	case !utf8.ValidString(r.GuestName) || hasControl(r.GuestName, false):
+	case !utf8.ValidString(name) || hasControl(name, false):
 		errs["guest_name"] = "宿泊者の名前に使えない文字が含まれています。"
 	}
 
-	r.Contact = strings.TrimSpace(r.Contact)
+	contact := strings.TrimSpace(r.Contact)
 	switch {
-	case utf8.RuneCountInString(r.Contact) > MaxContactLen:
+	case utf8.RuneCountInString(contact) > MaxContactLen:
 		errs["contact"] = "連絡先は100文字以内にしてください。"
-	case !utf8.ValidString(r.Contact) || hasControl(r.Contact, false):
+	case !utf8.ValidString(contact) || hasControl(contact, false):
 		errs["contact"] = "連絡先に使えない文字が含まれています。"
 	}
 
-	r.Note = strings.TrimSpace(r.Note)
+	note := strings.TrimSpace(r.Note)
 	switch {
-	case utf8.RuneCountInString(r.Note) > MaxNoteLen:
+	case utf8.RuneCountInString(note) > MaxNoteLen:
 		errs["note"] = "備考は500文字以内にしてください。"
-	case !utf8.ValidString(r.Note) || hasControl(r.Note, true):
+	case !utf8.ValidString(note) || hasControl(note, true):
 		errs["note"] = "備考に使えない文字が含まれています。"
 	}
 
@@ -110,7 +120,7 @@ func (r *Reservation) Validate(roomCapacity int) map[string]string {
 	return errs
 }
 
-func validateDates(r *Reservation, errs map[string]string) {
+func validateDates(r Reservation, errs map[string]string) {
 	if r.CheckIn.IsZero() {
 		errs["check_in"] = "チェックイン日を入力してください。"
 	}

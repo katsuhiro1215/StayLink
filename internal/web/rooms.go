@@ -179,6 +179,7 @@ func readRoomForm(w http.ResponseWriter, r *http.Request) (form roomForm, rm roo
 		SortOrder: strings.TrimSpace(r.PostFormValue("sort_order")),
 	}
 	rm.Name = form.Name
+	rm.Normalize()
 
 	extra := map[string]string{}
 	if n, err := strconv.Atoi(form.Capacity); err == nil {
