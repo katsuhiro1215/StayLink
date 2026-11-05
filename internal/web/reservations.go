@@ -22,6 +22,8 @@ type ReservationStore interface {
 	Cancel(ctx context.Context, id int64) error
 	// Overlapping は、重なった予約を案内するための検索（重なりを防ぐのは DB の排他制約）。
 	Overlapping(ctx context.Context, roomID int64, checkIn, checkOut time.Time, excludeID int64) ([]reservation.Reservation, error)
+	// Between は、期間（from 含む〜to 含まない）に泊まりがある、取消されていない予約（月間カレンダー用）。
+	Between(ctx context.Context, from, to time.Time) ([]reservation.Reservation, error)
 }
 
 // formError は、特定の項目に結びつかないフォーム全体のエラーを入れるキー（Errors マップ内）。

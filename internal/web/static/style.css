@@ -148,6 +148,42 @@ select, input[type="date"], textarea {
 .pre { white-space: pre-wrap; }
 .btn-danger { border-color: var(--warn); color: var(--warn); font-weight: 700; }
 
+/* 月間カレンダー：行が部屋、列が日付。1マス＝1泊 */
+.month-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; margin: 0 0 1.25rem; }
+.month-label { margin: 0 0.5rem; min-width: 9rem; font-size: 1.5rem; text-align: center; }
+.calendar-wrap { max-width: none; } /* カレンダーは幅を広く使う（はみ出す分は、この枠の中でスクロール） */
+.calendar { border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+/* 表の幅は、部屋の列＋日数分。月の日数ごとに決める（style 属性を使わないので、あとから CSP を厳しくできる） */
+.calendar.days-28 { width: calc(8.5rem + 28 * 3.25rem); }
+.calendar.days-29 { width: calc(8.5rem + 29 * 3.25rem); }
+.calendar.days-30 { width: calc(8.5rem + 30 * 3.25rem); }
+.calendar.days-31 { width: calc(8.5rem + 31 * 3.25rem); }
+.calendar .room-col {
+  position: sticky; left: 0; z-index: 2; /* 横にスクロールしても、部屋の名前は左に残る */
+  width: 8.5rem; padding: 0.5rem 0.75rem; text-align: left; font-weight: 700;
+  background: var(--bg-side); border-right: 1px solid var(--text-sub);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.calendar thead .room-col { color: var(--text-sub); font-weight: 400; border-bottom: 1px solid var(--text-sub); }
+.calendar th.day { width: 3.25rem; padding: 0.25rem 0; text-align: center; font-weight: 400; color: var(--text-sub); border-bottom: 1px solid var(--text-sub); }
+.calendar .day-num, .calendar .day-wd { display: block; line-height: 1.5; }
+.calendar th.day.weekend, .calendar td.weekend { background: #131313; }
+.calendar th.day.today { background: var(--accent); color: #0d0d0d; font-weight: 700; } /* 今日：背景がゴールドの装飾（状態の意味は持たせない） */
+.calendar td { height: 3.25rem; padding: 0; border-bottom: 1px solid var(--line); border-right: 1px solid #1c1c1c; }
+.calendar td.today { background: #1c1a10; }
+.calendar td.booking { padding: 0.35rem 2px; background: transparent; }
+.calendar td.booking a {
+  display: block; padding: 0.35rem 0.5rem;
+  background: #1d3b19; color: var(--text); text-decoration: none; /* 予約中＝緑（一覧のバッジと同じ意味） */
+  border-left: 4px solid var(--ok);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.calendar td.booking a:hover { background: #27501f; }
+.calendar td.booking a:focus-visible { outline-offset: -3px; }
+.calendar td.cont-before a { border-left-style: dotted; } /* 前の月から続いている */
+.calendar td.cont-after a { border-right: 4px dotted var(--ok); } /* 次の月へ続く */
+.legend { max-width: 60rem; margin: 1.25rem 0 0; padding-left: 1.25rem; color: var(--text-sub); }
+
 /* 画面が狭いときはメニューを上に出す */
 @media (max-width: 40rem) {
   .shell { grid-template-columns: minmax(0, 1fr); }

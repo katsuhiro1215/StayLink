@@ -1,0 +1,56 @@
+{{define "content"}}
+{{with .Data.Warning}}<p class="notice notice-warn" role="status">{{.}}</p>{{end}}
+
+<nav class="month-nav" aria-label="月の切り替え">
+  {{if .Data.PrevMonth}}<a class="btn" href="/calendar?month={{.Data.PrevMonth}}">前の月</a>{{end}}
+  <h2 class="month-label">{{.Data.MonthLabel}}</h2>
+  {{if .Data.NextMonth}}<a class="btn" href="/calendar?month={{.Data.NextMonth}}">次の月</a>{{end}}
+  {{if not .Data.IsCurrent}}<a href="/calendar">今月に戻る</a>{{end}}
+  <a class="btn btn-primary" href="/reservations/new">予約を登録する</a>
+</nav>
+
+{{if .Data.Rows}}
+<div class="table-wrap calendar-wrap" role="region" aria-label="{{.Data.MonthLabel}}の予約カレンダー（横にスクロールできます）" tabindex="0">
+<table class="calendar days-{{.Data.DayCount}}">
+  <caption class="visually-hidden">{{.Data.MonthLabel}}の、部屋ごとの予約。1マスが1泊です。予約の名前を選ぶと、編集の画面へ進みます。</caption>
+  <thead>
+    <tr>
+      <th scope="col" class="room-col">部屋</th>
+      {{range .Data.Days}}
+      <th scope="col" class="day{{if .Weekend}} weekend{{end}}{{if .Today}} today{{end}}"{{if .Today}} aria-current="date"{{end}}>
+        <span class="day-num">{{.Num}}</span><span class="day-wd">{{.Weekday}}</span>
+      </th>
+      {{end}}
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Data.Rows}}
+    <tr>
+      <th scope="row" class="room-col">{{.RoomName}}{{if .Inactive}}（停止中）{{end}}</th>
+      {{range .Cells}}
+      {{if .Booking}}
+      <td colspan="{{.Span}}" class="booking{{if .Booking.ContinuesBefore}} cont-before{{end}}{{if .Booking.ContinuesAfter}} cont-after{{end}}">
+        <a href="/reservations/{{.Booking.ID}}/edit" title="{{.Booking.Label}}" aria-label="{{.Booking.Label}}">{{.Booking.Guest}}</a>
+      </td>
+      {{else}}
+      <td class="empty{{if .Weekend}} weekend{{end}}{{if .Today}} today{{end}}"></td>
+      {{end}}
+      {{end}}
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+</div>
+
+<ul class="legend">
+  <li>1マスが1泊です。チェックアウト日のマスは空いていて、同じ日に次の方がチェックインできます。</li>
+  <li>点線の端は、前の月から続いている、または次の月へ続いている予約です。</li>
+  <li>名前が切れて見えるときは、名前を選ぶか、マウスを重ねると、期間と人数が分かります。</li>
+</ul>
+{{else}}
+<section class="panel">
+  <h2>表示できる部屋がありません</h2>
+  <p>先に<a href="/rooms/new">部屋を登録</a>してください。</p>
+</section>
+{{end}}
+{{end}}
