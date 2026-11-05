@@ -37,6 +37,9 @@ var (
 	ErrRoomNotFound = errors.New("reservation: 部屋が見つかりません")
 	// ErrOverlap は、同じ部屋で期間が重なる予約があることを表す（二重予約）。
 	ErrOverlap = errors.New("reservation: その期間は、この部屋にすでに予約があります")
+	// ErrBusy は、同時の操作が重なってデッドロックになり、やり直しても成功しなかったことを表す。
+	// 入力は正しいので、もう一度操作すれば通る可能性が高い。
+	ErrBusy = errors.New("reservation: 他の操作と重なりました。もう一度お試しください")
 )
 
 // Reservation は予約。日付は UTC の 0 時の time.Time で持ち、時刻は意味を持たない。

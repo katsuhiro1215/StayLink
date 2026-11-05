@@ -28,6 +28,18 @@ type ReservationStore interface {
 // フォーム上部のお知らせにだけ出す。
 const formError = "_form"
 
+// busyMessage は、同時の操作が重なって保存できなかったときの案内。入力は正しいので、もう一度押せば通る。
+const busyMessage = "同時に他の操作があり、保存できませんでした。入力は残してあります。もう一度、ボタンを押してください。"
+
+// statusFor はフォームの誤りに応じた HTTP ステータスを返す。
+// 入力の誤りは 422。同時操作の混み合い（再試行すれば通る）は、入力の誤りではないので 503。
+func statusFor(errs map[string]string) int {
+	if errs[formError] == busyMessage {
+		return http.StatusServiceUnavailable
+	}
+	return http.StatusUnprocessableEntity
+}
+
 // jst は日本時間。「今日」を日本の日付で決めるために使う（tzdata に頼らず固定の +9 時間）。
 var jst = time.FixedZone("JST", 9*60*60)
 
@@ -156,6 +168,8 @@ func (s *server) reservationCreate(w http.ResponseWriter, r *http.Request) {
 			errs["room_id"] = "選んだ部屋が見つかりません。"
 		} else if errors.Is(err, reservation.ErrOverlap) {
 			s.explainOverlap(r.Context(), &res, 0, errs)
+		} else if errors.Is(err, reservation.ErrBusy) {
+			errs[formError] = busyMessage
 		} else if err != nil {
 			s.serverError(w, "予約の登録に失敗しました", err)
 			return
@@ -164,7 +178,7 @@ func (s *server) reservationCreate(w http.ResponseWriter, r *http.Request) {
 	if len(errs) > 0 {
 		form.Errors = errs
 		form.Rooms = roomOptions(rooms, form.RoomID, 0)
-		s.renderReservationForm(w, http.StatusUnprocessableEntity, "予約の登録", form)
+		s.renderReservationForm(w, statusFor(errs), "予約の登録", form)
 		return
 	}
 	http.Redirect(w, r, "/reservations?saved=created", http.StatusSeeOther)
@@ -227,6 +241,8 @@ func (s *server) reservationUpdate(w http.ResponseWriter, r *http.Request) {
 			errs["room_id"] = "選んだ部屋が見つかりません。"
 		case errors.Is(err, reservation.ErrOverlap):
 			s.explainOverlap(r.Context(), &res, cur.ID, errs)
+		case errors.Is(err, reservation.ErrBusy):
+			errs[formError] = busyMessage
 		case err != nil:
 			s.serverError(w, "予約の更新に失敗しました", err)
 			return
@@ -235,7 +251,7 @@ func (s *server) reservationUpdate(w http.ResponseWriter, r *http.Request) {
 	if len(errs) > 0 {
 		form.Errors = errs
 		form.Rooms = roomOptions(rooms, form.RoomID, cur.RoomID)
-		s.renderReservationForm(w, http.StatusUnprocessableEntity, "予約の編集", form)
+		s.renderReservationForm(w, statusFor(errs), "予約の編集", form)
 		return
 	}
 	http.Redirect(w, r, "/reservations?saved=updated", http.StatusSeeOther)

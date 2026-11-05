@@ -102,6 +102,36 @@ func TestReservationOverlapExplanationFallsBack(t *testing.T) {
 	}
 }
 
+// 同時操作でデッドロックのやり直しが尽きたとき（ErrBusy）は、500 ではなく、入力を残した案内にする。
+// 入力の誤りではないので、422 ではなく 503。
+func TestReservationBusyIsNotAServerError(t *testing.T) {
+	t.Run("登録", func(t *testing.T) {
+		e := newEnv(t)
+		e.resv.writeErr = reservation.ErrBusy
+
+		rec := post(e.h, "/reservations", with(validForm(), "guest_name", "鈴木 花子"))
+		if rec.Code != http.StatusServiceUnavailable {
+			t.Fatalf("ステータス = %d, 期待 503", rec.Code)
+		}
+		mustContain(t, rec, "もう一度、ボタンを押してください。")
+		mustContain(t, rec, `value="鈴木 花子"`) // 入力は残る
+		if strings.Contains(rec.Body.String(), "重なって") {
+			t.Error("重なりとは違うのに、重なりの案内が出ている")
+		}
+	})
+	t.Run("更新", func(t *testing.T) {
+		e := newEnv(t)
+		e.seed(t, sample(t))
+		e.resv.writeErr = reservation.ErrBusy
+
+		rec := post(e.h, "/reservations/1", validForm())
+		if rec.Code != http.StatusServiceUnavailable {
+			t.Fatalf("ステータス = %d, 期待 503", rec.Code)
+		}
+		mustContain(t, rec, "もう一度、ボタンを押してください。")
+	})
+}
+
 // 重なった予約の名前は、画面に出すのでエスケープされる。
 func TestReservationOverlapEscapesGuestName(t *testing.T) {
 	e := newEnv(t)
@@ -222,18 +252,46 @@ func TestRealDBConcurrentPostsOnlyOneSucceeds(t *testing.T) {
 	close(start)
 	wg.Wait()
 
-	var created, refused int
+	// 守るべき不変条件：登録は必ず1件だけ。残りは「重なっている（422）」か、
+	// まれに「混み合い（503。もう一度で通る）」。500 は起きてはならない。
+	var created, refused, busy int
 	for _, c := range codes {
 		switch c {
 		case http.StatusSeeOther:
 			created++
 		case http.StatusUnprocessableEntity:
 			refused++
+		case http.StatusServiceUnavailable:
+			busy++
 		default:
 			t.Errorf("想定外のステータス: %d", c)
 		}
 	}
-	if created != 1 || refused != workers-1 {
-		t.Errorf("登録 %d 件・拒否 %d 件, 期待 登録1・拒否%d", created, refused, workers-1)
+	if created != 1 || created+refused+busy != workers {
+		t.Errorf("登録 %d 件・拒否 %d 件・混み合い %d 件, 期待 登録1・合計%d", created, refused, busy, workers)
+	}
+}
+
+// 実DBで、更新による重なりも、断られて誰と重なったかが出る（自分自身とは重ならない）。
+func TestRealDBUpdateOverlap(t *testing.T) {
+	h, roomID := newRealEnv(t)
+	post(h, "/reservations", realForm(roomID, "山田 太郎", "2026-11-10", "2026-11-13")) // id=1
+	post(h, "/reservations", realForm(roomID, "鈴木 花子", "2026-11-13", "2026-11-15")) // id=2（隣接）
+
+	// 自分の期間のまま、内容だけ更新できる。
+	form := realForm(roomID, "山田 太郎", "2026-11-10", "2026-11-13")
+	form.Set("num_guests", "3")
+	if rec := post(h, "/reservations/1", form); rec.Code != http.StatusSeeOther {
+		t.Fatalf("自分自身との重なりは数えない: ステータス = %d, 期待 303", rec.Code)
+	}
+
+	// 延ばして鈴木さんの期間と重なると、断られ、誰と重なったかが出る。
+	rec := post(h, "/reservations/1", realForm(roomID, "山田 太郎", "2026-11-10", "2026-11-14"))
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("重なる更新: ステータス = %d, 期待 422", rec.Code)
+	}
+	mustContain(t, rec, "鈴木 花子さん（2026年11月13日〜11月15日）")
+	if strings.Contains(rec.Body.String(), "山田 太郎さん（") {
+		t.Error("自分自身が、重なった相手として表示されている")
 	}
 }

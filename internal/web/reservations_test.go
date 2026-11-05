@@ -19,6 +19,7 @@ type fakeReservations struct {
 	nextID     int64
 	err        error
 	overlapErr error              // 設定すると、Overlapping（案内用の検索）だけが失敗する
+	writeErr   error              // 設定すると、Create / Update だけがこのエラーで失敗する
 	lastFilter reservation.Filter // 直近の List に渡された条件
 }
 
@@ -70,6 +71,9 @@ func (f *fakeReservations) Create(_ context.Context, r *reservation.Reservation)
 	if f.err != nil {
 		return f.err
 	}
+	if f.writeErr != nil {
+		return f.writeErr
+	}
 	if len(f.overlapping(r.RoomID, r.CheckIn, r.CheckOut, 0)) > 0 {
 		return reservation.ErrOverlap
 	}
@@ -88,6 +92,8 @@ func (f *fakeReservations) Update(_ context.Context, r *reservation.Reservation)
 		return reservation.ErrNotFound
 	case f.items[i].Status == reservation.StatusCancelled:
 		return reservation.ErrNotEditable
+	case f.writeErr != nil:
+		return f.writeErr
 	}
 	if len(f.overlapping(r.RoomID, r.CheckIn, r.CheckOut, r.ID)) > 0 {
 		return reservation.ErrOverlap

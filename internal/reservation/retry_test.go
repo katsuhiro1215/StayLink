@@ -34,7 +34,7 @@ func TestRetryDeadlock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			calls := 0
-			err := retryDeadlock(context.Background(), func() error {
+			retries, err := retryDeadlock(context.Background(), func() error {
 				i := calls
 				calls++
 				if i >= len(tt.results) {
@@ -45,6 +45,9 @@ func TestRetryDeadlock(t *testing.T) {
 
 			if calls != tt.wantCalls {
 				t.Errorf("呼び出し回数 = %d, 期待 %d", calls, tt.wantCalls)
+			}
+			if retries != tt.wantCalls-1 {
+				t.Errorf("やり直した回数 = %d, 期待 %d（呼び出し回数 - 1）", retries, tt.wantCalls-1)
 			}
 			switch {
 			case tt.wantErr == nil && err != nil:
@@ -59,7 +62,7 @@ func TestRetryDeadlock(t *testing.T) {
 func TestRetryDeadlockStopsWhenContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	calls := 0
-	err := retryDeadlock(ctx, func() error {
+	_, err := retryDeadlock(ctx, func() error {
 		calls++
 		cancel() // 1回目の失敗の直後に、呼び出し元がやめた
 		return pgError(deadlockDetected)
@@ -80,6 +83,11 @@ func TestTranslateOverlap(t *testing.T) {
 
 	if err := translate("登録", overlap); !errors.Is(err, ErrOverlap) {
 		t.Errorf("排他制約違反: err = %v, 期待 ErrOverlap", err)
+	}
+	// やり直しが尽きたデッドロックは、重なりではなく ErrBusy（入力は正しいので、もう一度で通りうる）。
+	err := translate("登録", &pgconn.PgError{Code: deadlockDetected})
+	if !errors.Is(err, ErrBusy) || errors.Is(err, ErrOverlap) {
+		t.Errorf("デッドロック: err = %v, 期待 ErrBusy（ErrOverlap ではない）", err)
 	}
 	// コードか制約名のどちらかが違えば、重なりとは扱わない（別の失敗を取り違えない）。
 	for name, e := range map[string]error{"別の排他制約": otherExclusion, "一意制約違反": unique} {

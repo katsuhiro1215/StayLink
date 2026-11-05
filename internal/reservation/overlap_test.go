@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/katsuhiro1215/StayLink/internal/room"
@@ -201,19 +202,24 @@ func TestStoreConcurrentSamePeriod(t *testing.T) {
 	close(start)
 	wg.Wait()
 
-	var ok, overlap int
+	// 守るべき不変条件：成功は必ず1件だけ。残りは「重なっている」か、
+	// まれに「他の操作と重なった（ErrBusy。もう一度で通る）」のどちらか。
+	var ok, overlap, busy int
 	for _, err := range errs {
 		switch {
 		case err == nil:
 			ok++
 		case errors.Is(err, ErrOverlap):
 			overlap++
+		case errors.Is(err, ErrBusy):
+			busy++
 		default:
 			t.Errorf("想定外のエラー: %v", err)
 		}
 	}
-	if ok != 1 || overlap != workers-1 {
-		t.Errorf("成功 %d 件・重複 %d 件, 期待 成功1・重複%d", ok, overlap, workers-1)
+	t.Logf("成功 %d・重複 %d・混み合い %d・デッドロックのやり直し %d 回", ok, overlap, busy, f.store.DeadlockRetries())
+	if ok != 1 || ok+overlap+busy != workers {
+		t.Errorf("成功 %d 件・重複 %d 件・混み合い %d 件, 期待 成功1・合計%d", ok, overlap, busy, workers)
 	}
 	if list, _ := f.store.List(ctx, Filter{}); len(list) != 1 {
 		t.Errorf("保存された件数 = %d, 期待 1", len(list))
@@ -227,6 +233,7 @@ func TestStoreConcurrentShiftedPeriodsNeverOverlap(t *testing.T) {
 
 	const workers = 12
 	var wg sync.WaitGroup
+	var busy atomic.Int64 // やり直しが尽きて ErrBusy になった数（記録用）
 	start := make(chan struct{})
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
@@ -236,7 +243,11 @@ func TestStoreConcurrentShiftedPeriodsNeverOverlap(t *testing.T) {
 			r := f.newReservation(t, "2026-12-01", "2026-12-02")
 			r.CheckIn, r.CheckOut = in, in.AddDate(0, 0, 3)
 			<-start
-			if err := f.store.Create(ctx, r); err != nil && !errors.Is(err, ErrOverlap) {
+			// 成功・重なり・混み合い（ErrBusy）以外は想定外。
+			err := f.store.Create(ctx, r)
+			if errors.Is(err, ErrBusy) {
+				busy.Add(1)
+			} else if err != nil && !errors.Is(err, ErrOverlap) {
 				t.Errorf("想定外のエラー: %v", err)
 			}
 		}()
@@ -251,6 +262,7 @@ func TestStoreConcurrentShiftedPeriodsNeverOverlap(t *testing.T) {
 	if len(list) == 0 {
 		t.Fatal("1件も保存されていない")
 	}
+	t.Logf("保存 %d 件・デッドロックのやり直し %d 回・やり直しが尽きて混み合い %d 件", len(list), f.store.DeadlockRetries(), busy.Load())
 	for i := range list {
 		for j := i + 1; j < len(list); j++ {
 			a, b := list[i], list[j]
