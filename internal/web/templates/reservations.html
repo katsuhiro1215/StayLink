@@ -49,10 +49,10 @@
       <td class="nowrap">{{if eq .Status "cancelled"}}<span class="badge badge-off">取消済み</span>{{else}}<span class="badge badge-ok">予約中</span>{{end}}</td>
       <td class="nowrap row-actions">
         {{if eq .Status "cancelled"}}
-        <a href="/reservations/{{.ID}}/edit">詳細<span class="visually-hidden">：{{.GuestName}}さんの取り消した予約</span></a>
+        <a href="/reservations/{{.ID}}/edit">詳細<span class="visually-hidden">：{{honorific .GuestName}}の取り消した予約</span></a>
         {{else}}
-        <a href="/reservations/{{.ID}}/edit">編集<span class="visually-hidden">：{{.GuestName}}さんの予約</span></a>
-        <a href="/reservations/{{.ID}}/cancel">取消<span class="visually-hidden">：{{.GuestName}}さんの予約</span></a>
+        <a href="/reservations/{{.ID}}/edit">編集<span class="visually-hidden">：{{honorific .GuestName}}の予約</span></a>
+        <a href="/reservations/{{.ID}}/cancel">取消<span class="visually-hidden">：{{honorific .GuestName}}の予約</span></a>
         {{end}}
       </td>
     </tr>

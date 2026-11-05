@@ -333,7 +333,7 @@ func (s *server) explainOverlap(ctx context.Context, res *reservation.Reservatio
 			parts = append(parts, "ほか"+strconv.Itoa(len(conflicts)-show)+"件")
 			break
 		}
-		parts = append(parts, c.GuestName+"さん（"+japaneseRange(c.CheckIn, c.CheckOut)+"）")
+		parts = append(parts, honorific(c.GuestName)+"（"+japaneseRange(c.CheckIn, c.CheckOut)+"）")
 	}
 	errs[formError] = "この部屋は、その期間に次の予約があります：" + strings.Join(parts, "、") + "。日付か部屋を変えてください。"
 }

@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -21,7 +22,7 @@ type pages map[string]*template.Template
 
 func loadPages() (pages, error) {
 	names := []string{
-		"home", "notfound",
+		"home", "notfound", "error",
 		"rooms", "room_form",
 		"reservations", "reservation_form", "reservation_view", "reservation_cancel",
 		"calendar",
@@ -39,7 +40,8 @@ func loadPages() (pages, error) {
 
 // funcs はテンプレートで使う関数。日付は UTC の 0 時の time.Time で持っているので、そのまま整形する。
 var funcs = template.FuncMap{
-	"ymd": func(t time.Time) string { return t.Format("2006-01-02") },
+	"honorific": honorific,
+	"ymd":       func(t time.Time) string { return t.Format("2006-01-02") },
 	"weekday": func(t time.Time) string {
 		return [...]string{"日", "月", "火", "水", "木", "金", "土"}[t.Weekday()]
 	},
@@ -96,7 +98,8 @@ func newHandler(rooms RoomStore, reservations ReservationStore, now func() time.
 	// 他のサイトのページからブラウザ経由で送られた POST などを拒否する（標準ライブラリの機能）。
 	// 限界：Sec-Fetch-Site / Origin を持たないリクエスト（curl など）は通す。Host の検証もしない。
 	// 認証なし・自分のPCだけで使う前提の対策。LAN や外部に公開するなら、認証と Host 検証が要る。
-	return http.NewCrossOriginProtection().Handler(mux), nil
+	// 外側にセキュリティヘッダを付ける（CrossOriginProtection が拒否した応答にも付く）。
+	return securityHeaders(http.NewCrossOriginProtection().Handler(mux)), nil
 }
 
 // pageData は全画面で共通のテンプレート入力。
@@ -125,4 +128,15 @@ func (p pages) render(w http.ResponseWriter, status int, name string, data pageD
 	if _, err := buf.WriteTo(w); err != nil {
 		log.Printf("送信に失敗しました (%s): %v", name, err)
 	}
+}
+
+// honorific は、名前に敬称をつける。すでに敬称で終わっているときは、重ねない（「山田様さん」を防ぐ）。
+// 末尾の文字だけで判定するので、「山田様（団体）」「山田様ご一行」「○○御中」「サン」「Mr.」などは対象外（敬称が重なる）。
+func honorific(name string) string {
+	for _, h := range []string{"さん", "様", "さま", "殿", "氏", "先生"} {
+		if strings.HasSuffix(name, h) {
+			return name
+		}
+	}
+	return name + "さん"
 }

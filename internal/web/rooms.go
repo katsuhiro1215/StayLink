@@ -210,5 +210,6 @@ func (s *server) notFound(w http.ResponseWriter) {
 
 func (s *server) serverError(w http.ResponseWriter, msg string, err error) {
 	log.Printf("%s: %v", msg, err)
-	http.Error(w, "内部エラーが発生しました", http.StatusInternalServerError)
+	// 内部のエラー内容は画面に出さない（ログにだけ残す）。ナビつきの画面にして、ほかの画面へ移れるようにする。
+	s.pages.render(w, http.StatusInternalServerError, "error", pageData{Title: "エラー"})
 }
