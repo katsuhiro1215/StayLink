@@ -67,7 +67,9 @@ func NewHandler(rooms RoomStore) (http.Handler, error) {
 		s.notFound(w)
 	})
 
-	// 他のサイトからの POST などを拒否する（CSRF 対策の基本。標準ライブラリの機能）。
+	// 他のサイトのページからブラウザ経由で送られた POST などを拒否する（標準ライブラリの機能）。
+	// 限界：Sec-Fetch-Site / Origin を持たないリクエスト（curl など）は通す。Host の検証もしない。
+	// 認証なし・自分のPCだけで使う前提の対策。LAN や外部に公開するなら、認証と Host 検証が要る。
 	return http.NewCrossOriginProtection().Handler(mux), nil
 }
 

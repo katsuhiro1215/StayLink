@@ -336,3 +336,29 @@ func TestCrossSitePostIsRejected(t *testing.T) {
 		t.Errorf("same-origin: ステータス = %d, 期待 303", rec.Code)
 	}
 }
+
+// CrossOriginProtection の限界を、仕様として固定する。
+// Origin が別のサイトなら拒否するが、ヘッダが何もない送信（curl など）は通す。
+func TestCrossOriginProtectionLimits(t *testing.T) {
+	tests := []struct {
+		name       string
+		headers    []string
+		wantStatus int
+	}{
+		{"Origin が別サイトなら拒否", []string{"Origin", "https://evil.example"}, http.StatusForbidden},
+		{"Sec-Fetch-Site が none（アドレスバーからの操作）は通す", []string{"Sec-Fetch-Site", "none"}, http.StatusSeeOther},
+		{"ヘッダなし（curl など）は通す。認証がないので、LAN公開は非推奨", nil, http.StatusSeeOther},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeStore{}
+			rec := post(newRoomsHandler(t, f), "/rooms",
+				url.Values{"name": {"松の間"}, "capacity": {"2"}}, tt.headers...)
+
+			if rec.Code != tt.wantStatus {
+				t.Errorf("ステータス = %d, 期待 %d", rec.Code, tt.wantStatus)
+			}
+		})
+	}
+}

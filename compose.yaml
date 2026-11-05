@@ -2,14 +2,14 @@ services:
   db:
     image: postgres:18-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:?.env を作ってください（cp .env.example .env）}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env を作ってください（cp .env.example .env）}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
       # 他のプロジェクトと衝突しないよう 5433、かつ自分のPCからだけ接続できるようにする
       - "127.0.0.1:${POSTGRES_PORT}:5432"
     volumes:
-      # PostgreSQL 18 以降のイメージは /var/lib/postgresql に置く（要確認：公式イメージの説明）
+      # PostgreSQL 18 以降のイメージは /var/lib/postgresql に置く（down→up でデータが残ることを確認済み）
       - staylink-pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]

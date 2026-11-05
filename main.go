@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -43,8 +44,14 @@ func main() {
 	if port == "" {
 		port = "8090"
 	}
-	addr := ":" + port
-	log.Printf("起動します http://localhost%s", addr)
+	// 認証がないので、既定は自分のPCからだけ接続できる 127.0.0.1。
+	// LAN に公開したいときだけ HOST=0.0.0.0 を指定する（認証を付けるまでは非推奨）。
+	host := os.Getenv("HOST")
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	addr := net.JoinHostPort(host, port)
+	log.Printf("起動します http://%s", addr)
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           handler,
