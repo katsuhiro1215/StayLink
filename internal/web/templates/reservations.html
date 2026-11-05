@@ -1,0 +1,69 @@
+{{define "content"}}
+{{with .Data.Message}}<p class="notice notice-ok" role="status">{{.}}</p>{{end}}
+{{with .Data.Warning}}<p class="notice notice-warn" role="status">{{.}}</p>{{end}}
+
+<form class="filter" method="get" action="/reservations">
+  <div class="filter-item">
+    <label for="status">状態</label>
+    <select id="status" name="status">
+      <option value="reserved"{{if eq .Data.Status "reserved"}} selected{{end}}>予約中</option>
+      <option value="cancelled"{{if eq .Data.Status "cancelled"}} selected{{end}}>取消済み</option>
+      <option value="all"{{if eq .Data.Status "all"}} selected{{end}}>すべて</option>
+    </select>
+  </div>
+  <div class="filter-item">
+    <label for="from">この日以降にチェックアウトする予約</label>
+    <input id="from" name="from" type="date" value="{{.Data.From}}">
+  </div>
+  <button class="btn" type="submit">絞り込む</button>
+  <a href="/reservations?status=all&amp;from=">すべての期間を表示する</a>
+</form>
+
+<p class="actions"><a class="btn btn-primary" href="/reservations/new">予約を登録する</a></p>
+
+{{if .Data.Reservations}}
+<div class="table-wrap" role="region" aria-label="予約の一覧（横にスクロールできます）" tabindex="0">
+<table class="table">
+  <caption class="visually-hidden">予約の一覧</caption>
+  <thead>
+    <tr>
+      <th scope="col">チェックイン</th>
+      <th scope="col">チェックアウト</th>
+      <th scope="col">泊数</th>
+      <th scope="col">部屋</th>
+      <th scope="col">宿泊者</th>
+      <th scope="col">人数</th>
+      <th scope="col">状態</th>
+      <th scope="col"><span class="visually-hidden">操作</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Data.Reservations}}
+    <tr{{if eq .Status "cancelled"}} class="is-inactive"{{end}}>
+      <td class="nowrap">{{ymd .CheckIn}}（{{weekday .CheckIn}}）</td>
+      <td class="nowrap">{{ymd .CheckOut}}（{{weekday .CheckOut}}）</td>
+      <td class="nowrap">{{.Nights}}泊</td>
+      <td class="nowrap">{{.RoomName}}</td>
+      <th scope="row">{{.GuestName}}</th>
+      <td class="nowrap">{{.NumGuests}}名</td>
+      <td class="nowrap">{{if eq .Status "cancelled"}}<span class="badge badge-off">取消済み</span>{{else}}<span class="badge badge-ok">予約中</span>{{end}}</td>
+      <td class="nowrap row-actions">
+        {{if eq .Status "cancelled"}}
+        <a href="/reservations/{{.ID}}/edit">詳細<span class="visually-hidden">：{{.GuestName}}さんの取り消した予約</span></a>
+        {{else}}
+        <a href="/reservations/{{.ID}}/edit">編集<span class="visually-hidden">：{{.GuestName}}さんの予約</span></a>
+        <a href="/reservations/{{.ID}}/cancel">取消<span class="visually-hidden">：{{.GuestName}}さんの予約</span></a>
+        {{end}}
+      </td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+</div>
+{{else}}
+<section class="panel">
+  <h2>該当する予約はありません</h2>
+  <p>条件を変えるか、「予約を登録する」から登録してください。</p>
+</section>
+{{end}}
+{{end}}

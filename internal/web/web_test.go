@@ -10,7 +10,7 @@ import (
 
 func newTestHandler(t *testing.T) http.Handler {
 	t.Helper()
-	h, err := NewHandler(&fakeStore{})
+	h, err := NewHandler(&fakeStore{}, &fakeReservations{})
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}

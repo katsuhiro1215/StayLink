@@ -1,4 +1,6 @@
 {{define "content"}}
+{{/* 入力の検証はサーバー側で行い、メッセージを項目ごとに出す。そのため novalidate でブラウザの検証は止める。
+     required や min は、入力の目安と、スクリーンリーダーへの必須の伝達のために残している。 */}}
 {{with .Data.Errors}}
 <p class="notice notice-warn" role="alert">入力に誤りがあります。各項目のメッセージを確認して、直してください。</p>
 {{end}}

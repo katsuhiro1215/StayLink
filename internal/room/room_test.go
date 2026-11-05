@@ -22,6 +22,10 @@ func TestValidate(t *testing.T) {
 		{"定員100", Room{Name: "大広間", Capacity: 100}, nil},
 		{"定員101", Room{Name: "大広間", Capacity: 101}, []string{"capacity"}},
 		{"両方誤り", Room{Name: "", Capacity: 0}, []string{"name", "capacity"}},
+		{"不正なUTF-8", Room{Name: "松\xffの間", Capacity: 2}, []string{"name"}},
+		{"NUL文字", Room{Name: "松\x00の間", Capacity: 2}, []string{"name"}},
+		{"改行", Room{Name: "松の\n間", Capacity: 2}, []string{"name"}},
+		{"タブ", Room{Name: "松の\t間", Capacity: 2}, []string{"name"}},
 	}
 
 	for _, tt := range tests {

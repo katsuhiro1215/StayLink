@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"time"
 )
 
 //go:embed templates/*.html static/*
@@ -19,10 +20,14 @@ var assets embed.FS
 type pages map[string]*template.Template
 
 func loadPages() (pages, error) {
-	names := []string{"home", "rooms", "room_form", "notfound"}
+	names := []string{
+		"home", "notfound",
+		"rooms", "room_form",
+		"reservations", "reservation_form", "reservation_view", "reservation_cancel",
+	}
 	p := make(pages, len(names))
 	for _, name := range names {
-		t, err := template.ParseFS(assets, "templates/layout.html", "templates/"+name+".html")
+		t, err := template.New(name).Funcs(funcs).ParseFS(assets, "templates/layout.html", "templates/"+name+".html")
 		if err != nil {
 			return nil, err
 		}
@@ -31,19 +36,33 @@ func loadPages() (pages, error) {
 	return p, nil
 }
 
-// server は各ハンドラが共有するもの（テンプレートと保存先）を持つ。
+// funcs はテンプレートで使う関数。日付は UTC の 0 時の time.Time で持っているので、そのまま整形する。
+var funcs = template.FuncMap{
+	"ymd": func(t time.Time) string { return t.Format("2006-01-02") },
+	"weekday": func(t time.Time) string {
+		return [...]string{"日", "月", "火", "水", "木", "金", "土"}[t.Weekday()]
+	},
+}
+
+// server は各ハンドラが共有するもの（テンプレート・保存先・時計）を持つ。
 type server struct {
-	pages pages
-	rooms RoomStore
+	pages        pages
+	rooms        RoomStore
+	reservations ReservationStore
+	now          func() time.Time // 「今日」を決める。テストで差し替える
 }
 
 // NewHandler はルーティングを組み立てて返す。
-func NewHandler(rooms RoomStore) (http.Handler, error) {
+func NewHandler(rooms RoomStore, reservations ReservationStore) (http.Handler, error) {
+	return newHandler(rooms, reservations, time.Now)
+}
+
+func newHandler(rooms RoomStore, reservations ReservationStore, now func() time.Time) (http.Handler, error) {
 	p, err := loadPages()
 	if err != nil {
 		return nil, err
 	}
-	s := &server{pages: p, rooms: rooms}
+	s := &server{pages: p, rooms: rooms, reservations: reservations, now: now}
 
 	static, err := fs.Sub(assets, "static")
 	if err != nil {
@@ -55,6 +74,13 @@ func NewHandler(rooms RoomStore) (http.Handler, error) {
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		p.render(w, http.StatusOK, "home", pageData{Title: "トップ", Active: "home"})
 	})
+	mux.HandleFunc("GET /reservations", s.reservationList)
+	mux.HandleFunc("GET /reservations/new", s.reservationNew)
+	mux.HandleFunc("POST /reservations", s.reservationCreate)
+	mux.HandleFunc("GET /reservations/{id}/edit", s.reservationEdit)
+	mux.HandleFunc("POST /reservations/{id}", s.reservationUpdate)
+	mux.HandleFunc("GET /reservations/{id}/cancel", s.reservationCancelConfirm)
+	mux.HandleFunc("POST /reservations/{id}/cancel", s.reservationCancel)
 	mux.HandleFunc("GET /rooms", s.roomList)
 	mux.HandleFunc("GET /rooms/new", s.roomNew)
 	mux.HandleFunc("POST /rooms", s.roomCreate)
