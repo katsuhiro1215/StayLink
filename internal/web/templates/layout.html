@@ -11,6 +11,7 @@
     <header class="side">
       <a class="brand" href="/">StayLink</a>
       <p class="brand-sub">民宿の予約台帳</p>
+      {{if ne .Active "login"}}
       <nav aria-label="メインメニュー">
         <ul class="nav">
           <li><a href="/"{{if eq .Active "home"}} aria-current="page"{{end}}>トップ</a></li>
@@ -19,6 +20,10 @@
           <li><a href="/rooms"{{if eq .Active "rooms"}} aria-current="page"{{end}}>部屋</a></li>
         </ul>
       </nav>
+      {{if authEnabled}}
+      <form class="logout" method="post" action="/logout"><button class="btn" type="submit">ログアウト</button></form>
+      {{end}}
+      {{end}}
     </header>
     <main class="main">
       <h1 class="page-title">{{.Title}}</h1>
