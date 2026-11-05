@@ -452,6 +452,21 @@ func TestReservationUpdateInvalidAndCancelled(t *testing.T) {
 		t.Errorf("取消済み: ステータス = %d, 期待 422", rec.Code)
 	}
 	mustContain(t, rec, "取り消されているため、変更できません。")
+	// 特定の項目の誤りではないので、名前欄のエラー（読み上げでは名前の誤りに聞こえる）には付けない。
+	if strings.Contains(rec.Body.String(), `id="guest_name-error"`) {
+		t.Error("取消済みのエラーが、宿泊者の名前欄に付いている")
+	}
+	mustContain(t, rec, `role="alert">この予約は取り消されているため`)
+}
+
+func TestReservationEditHasCancelLinkButNewDoesNot(t *testing.T) {
+	e := newEnv(t)
+	e.seed(t, sample(t))
+
+	mustContain(t, get(e.h, "/reservations/1/edit"), `href="/reservations/1/cancel"`)
+	if strings.Contains(get(e.h, "/reservations/new").Body.String(), "この予約を取り消す") {
+		t.Error("新規登録の画面に、取消のリンクが出ている")
+	}
 }
 
 func TestReservationCancelFlow(t *testing.T) {

@@ -29,7 +29,7 @@ a { color: var(--accent); }
 a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
 
 /* 左にメニュー、右に本文。本文は左寄せで広く使う */
-.shell { display: grid; grid-template-columns: 15rem 1fr; min-height: 100vh; }
+.shell { display: grid; grid-template-columns: 15rem minmax(0, 1fr); min-height: 100vh; }
 
 .side {
   background: var(--bg-side);
@@ -95,10 +95,12 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid 
 .table { width: 100%; max-width: 60rem; border-collapse: collapse; }
 .table th, .table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--line); text-align: left; }
 .table thead th { color: var(--text-sub); font-weight: 400; border-bottom-color: var(--text-sub); }
-.table tbody th { font-weight: 700; }
+.table tbody th { font-weight: 700; white-space: nowrap; }
 .table .is-inactive th, .table .is-inactive td { color: var(--text-sub); }
 .nowrap { white-space: nowrap; }
-.row-actions a { margin-right: 1.25rem; }
+.row-actions a { display: inline-block; padding: 0.5rem 0.4rem; margin-right: 0.75rem; } /* 押し間違いを減らすため、タップできる範囲を広げる */
+.table-wrap { position: relative; overflow-x: auto; max-width: 60rem; } /* relative：読み上げ用の隠しテキスト（absolute）をここに閉じ込め、ページの横幅を広げさせない */
+.table-wrap:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
 .badge { display: inline-block; padding: 0.1rem 0.7rem; border: 1px solid; font-size: 1rem; }
 .badge-ok { color: var(--ok); border-color: var(--ok); }
 .badge-off { color: var(--text-sub); border-color: var(--text-sub); }
@@ -148,11 +150,10 @@ select, input[type="date"], textarea {
 
 /* 画面が狭いときはメニューを上に出す */
 @media (max-width: 40rem) {
-  .shell { grid-template-columns: 1fr; }
+  .shell { grid-template-columns: minmax(0, 1fr); }
   .side { border-right: 0; border-bottom: 1px solid var(--line); padding: 1rem 1.25rem; }
   .brand-sub { margin-bottom: 1rem; }
   .main { padding: 1.5rem 1.25rem; }
   .details { grid-template-columns: 1fr; gap: 0.1rem; }
   .details dd { margin-bottom: 0.75rem; }
-  .table { display: block; overflow-x: auto; } /* 表は横にスクロール */
 }

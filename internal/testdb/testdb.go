@@ -16,6 +16,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // database/sql 用の PostgreSQL ドライバ
 )
@@ -23,6 +24,9 @@ import (
 // lockKey は、テスト同士を直列にするための advisory lock の番号（適当な固定値）。
 // go test は複数パッケージを同時に走らせるため、同じ DB を空にし合わないように使う。
 const lockKey = 735100
+
+// lockTimeout は、他のテストのロック待ちを打ち切るまでの時間。待ちっぱなしで固まるのを防ぐ。
+const lockTimeout = 30 * time.Second
 
 // Open はテスト専用 DB につないで、空の状態で返す。
 // TEST_DATABASE_URL が未設定のときは、そのテストを飛ばす。
@@ -45,6 +49,9 @@ func Open(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatalf("sql.Open: %v", err)
 	}
+	// 後始末は「確保した直後」に登録する。t.Cleanup は後に登録したものから先に動くので、
+	// 途中の t.Fatal で止まっても、ロックの解放と接続のクローズが必ず行われる。
+	t.Cleanup(func() { db.Close() }) // 最後に動く
 	ctx := context.Background()
 
 	// 1本の接続で advisory lock を取り、このテストが終わるまで他のテストを待たせる。
@@ -52,18 +59,19 @@ func Open(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatalf("DB に接続できません（scripts/test-db.sh を実行しましたか）: %v", err)
 	}
-	if _, err := lockConn.ExecContext(ctx, `SELECT pg_advisory_lock($1)`, lockKey); err != nil {
-		t.Fatalf("advisory lock: %v", err)
+	lockCtx, cancel := context.WithTimeout(ctx, lockTimeout)
+	defer cancel()
+	if _, err := lockConn.ExecContext(lockCtx, `SELECT pg_advisory_lock($1)`, lockKey); err != nil {
+		lockConn.Close()
+		t.Fatalf("他のテストのロックを %v 待ちましたが取れませんでした: %v", lockTimeout, err)
 	}
-
-	truncateAll(t, db)
-
-	t.Cleanup(func() {
-		truncateAll(t, db)
+	t.Cleanup(func() { // 2番目に動く。接続を閉じるだけでもロックは外れる
 		lockConn.ExecContext(ctx, `SELECT pg_advisory_unlock($1)`, lockKey)
 		lockConn.Close()
-		db.Close()
 	})
+
+	truncateAll(t, db)
+	t.Cleanup(func() { truncateAll(t, db) }) // 最初に動く
 	return db
 }
 

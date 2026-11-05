@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/katsuhiro1215/StayLink/internal/room"
 	"github.com/katsuhiro1215/StayLink/internal/testdb"
 )
@@ -82,21 +83,33 @@ func TestStoreRejectsInvalidRowsAtDB(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
 
-	bad := map[string]*Reservation{
-		"チェックアウトがチェックイン以前": f.newReservation(t, "2026-11-07", "2026-11-07"),
-		"人数0":     f.newReservation(t, "2026-11-05", "2026-11-07"),
-		"名前が空白だけ": f.newReservation(t, "2026-11-05", "2026-11-07"),
+	// どの制約が止めたかまで確かめる（別の理由で失敗していても通ってしまうのを防ぐ）。
+	tests := []struct {
+		name       string
+		mutate     func(r *Reservation)
+		constraint string
+	}{
+		{"チェックアウトがチェックイン以前", func(r *Reservation) { r.CheckOut = r.CheckIn }, "reservations_dates_check"},
+		{"人数0", func(r *Reservation) { r.NumGuests = 0 }, "reservations_num_guests_check"},
+		{"名前が空白だけ", func(r *Reservation) { r.GuestName = "   " }, "reservations_guest_name_check"},
 	}
-	bad["人数0"].NumGuests = 0
-	bad["名前が空白だけ"].GuestName = "   "
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := f.newReservation(t, "2026-11-05", "2026-11-07")
+			tt.mutate(r)
 
-	for name, r := range bad {
-		err := f.store.Create(ctx, r)
-		if err == nil {
-			t.Errorf("%s: 保存できてしまった", name)
-		} else if errors.Is(err, ErrRoomNotFound) {
-			t.Errorf("%s: CHECK 違反が「部屋なし」に化けている", name)
-		}
+			err := f.store.Create(ctx, r)
+			if err == nil {
+				t.Fatal("保存できてしまった")
+			}
+			var pgErr *pgconn.PgError
+			if !errors.As(err, &pgErr) {
+				t.Fatalf("PostgreSQL のエラーではない: %v", err)
+			}
+			if pgErr.Code != "23514" || pgErr.ConstraintName != tt.constraint {
+				t.Errorf("コード=%s 制約=%s, 期待 23514 と %s", pgErr.Code, pgErr.ConstraintName, tt.constraint)
+			}
+		})
 	}
 }
 
@@ -232,7 +245,8 @@ func TestStoreListFilterAndOrder(t *testing.T) {
 		{"予約中だけ", Filter{Status: StatusReserved}, []string{"過去", "前", "後"}},
 		{"取消済みだけ", Filter{Status: StatusCancelled}, []string{"取消"}},
 		{"11/05 以降にチェックアウトするもの", Filter{From: date(t, "2026-11-05")}, []string{"前", "取消", "後"}},
-		{"チェックアウト当日は含まない（check_out > From）", Filter{From: date(t, "2026-11-07")}, []string{"取消", "後"}},
+		{"チェックアウト当日も含む（check_out >= From。今朝発つ人は当日の一覧に出す）", Filter{From: date(t, "2026-11-07")}, []string{"前", "取消", "後"}},
+		{"チェックアウトの翌日になれば含まない", Filter{From: date(t, "2026-11-08")}, []string{"取消", "後"}},
 		{"状態と期間の組み合わせ", Filter{Status: StatusReserved, From: date(t, "2026-11-05")}, []string{"前", "後"}},
 		{"該当なし", Filter{From: date(t, "2027-01-01")}, nil},
 	}

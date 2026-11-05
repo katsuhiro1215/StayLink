@@ -34,7 +34,7 @@ func NewStore(db DBTX) *Store { return &Store{db: db} }
 // Filter は一覧の絞り込み条件。ゼロ値は「絞り込まない」。
 type Filter struct {
 	Status string    // StatusReserved / StatusCancelled。空なら全て
-	From   time.Time // この日より後にチェックアウトする予約だけ（check_out > From）。ゼロなら全期間
+	From   time.Time // この日以降にチェックアウトする予約だけ（check_out >= From。当日発つ人も含む）。ゼロなら全期間
 }
 
 const selectColumns = `r.id, r.room_id, rm.name, r.guest_name, r.contact,
@@ -58,7 +58,7 @@ func (s *Store) List(ctx context.Context, f Filter) ([]Reservation, error) {
 		`SELECT `+selectColumns+`
 		   FROM reservations r JOIN rooms rm ON rm.id = r.room_id
 		  WHERE ($1 = '' OR r.status = $1)
-		    AND ($2::date IS NULL OR r.check_out > $2::date)
+		    AND ($2::date IS NULL OR r.check_out >= $2::date)
 		  ORDER BY r.check_in, r.id`, f.Status, from)
 	if err != nil {
 		return nil, fmt.Errorf("reservation: 一覧の取得: %w", err)

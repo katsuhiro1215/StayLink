@@ -22,6 +22,7 @@
 <p class="actions"><a class="btn btn-primary" href="/reservations/new">予約を登録する</a></p>
 
 {{if .Data.Reservations}}
+<div class="table-wrap" role="region" aria-label="予約の一覧（横にスクロールできます）" tabindex="0">
 <table class="table">
   <caption class="visually-hidden">予約の一覧</caption>
   <thead>
@@ -58,6 +59,7 @@
     {{end}}
   </tbody>
 </table>
+</div>
 {{else}}
 <section class="panel">
   <h2>該当する予約はありません</h2>

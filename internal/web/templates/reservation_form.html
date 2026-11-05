@@ -1,6 +1,8 @@
 {{define "content"}}
+{{/* 入力の検証はサーバー側で行い、メッセージを項目ごとに出す。そのため novalidate でブラウザの検証は止める。
+     required や min は、入力の目安と、スクリーンリーダーへの必須の伝達のために残している。 */}}
 {{with .Data.Errors}}
-<p class="notice notice-warn" role="alert">入力に誤りがあります。各項目のメッセージを確認して、直してください。</p>
+<p class="notice notice-warn" role="alert">{{with index . "_form"}}{{.}}{{else}}入力に誤りがあります。各項目のメッセージを確認して、直してください。{{end}}</p>
 {{end}}
 
 {{if not .Data.Rooms}}
@@ -68,6 +70,7 @@
   <div class="actions">
     <button class="btn btn-primary" type="submit">{{if .Data.IsNew}}登録する{{else}}更新する{{end}}</button>
     <a class="btn" href="/reservations">一覧へ戻る</a>
+    {{if not .Data.IsNew}}<a class="btn btn-danger" href="{{.Data.Action}}/cancel">この予約を取り消す</a>{{end}}
   </div>
 </form>
 {{end}}

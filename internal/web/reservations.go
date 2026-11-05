@@ -21,6 +21,10 @@ type ReservationStore interface {
 	Cancel(ctx context.Context, id int64) error
 }
 
+// formError は、特定の項目に結びつかないフォーム全体のエラーを入れるキー（Errors マップ内）。
+// フォーム上部のお知らせにだけ出す。
+const formError = "_form"
+
 // jst は日本時間。「今日」を日本の日付で決めるために使う（tzdata に頼らず固定の +9 時間）。
 var jst = time.FixedZone("JST", 9*60*60)
 
@@ -213,7 +217,7 @@ func (s *server) reservationUpdate(w http.ResponseWriter, r *http.Request) {
 			s.notFound(w)
 			return
 		case errors.Is(err, reservation.ErrNotEditable):
-			errs["guest_name"] = "この予約は取り消されているため、変更できません。"
+			errs[formError] = "この予約は取り消されているため、変更できません。" // 特定の項目の誤りではない
 		case errors.Is(err, reservation.ErrRoomNotFound):
 			errs["room_id"] = "選んだ部屋が見つかりません。"
 		case err != nil:
