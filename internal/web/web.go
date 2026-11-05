@@ -72,9 +72,7 @@ func newHandler(rooms RoomStore, reservations ReservationStore, now func() time.
 
 	mux := http.NewServeMux()
 	// "GET /{$}" は "/" ちょうどだけに一致する（それ以外は下の "/" へ）。
-	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		p.render(w, http.StatusOK, "home", pageData{Title: "トップ", Active: "home"})
-	})
+	mux.HandleFunc("GET /{$}", s.home)
 	mux.HandleFunc("GET /calendar", s.calendar)
 	mux.HandleFunc("GET /reservations", s.reservationList)
 	mux.HandleFunc("GET /reservations/new", s.reservationNew)
