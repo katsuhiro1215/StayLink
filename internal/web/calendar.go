@@ -124,7 +124,13 @@ func buildCalendar(monthStart, today time.Time, rooms []room.Room, resv []reserv
 
 // buildCells は1つの部屋の1か月分のセルを作る。bookings はチェックイン日の順。
 func buildCells(days []calDay, monthStart, nextStart time.Time, bookings []reservation.Reservation) []calCell {
-	dayIndex := func(t time.Time) int { return int(t.Sub(monthStart).Hours() / 24) } // 日付は UTC の 0 時なので、ちょうど割り切れる
+	// 月の最初の日から数えて何日目か（0 始まり）。
+	// 時刻やタイムゾーンを持つ値が混ざっても1日ずれないよう、まず「その値が示す年月日」だけを取り出して、
+	// UTC の 0 時に揃えてから引く（引き算の結果は、必ず24時間で割り切れる）。
+	dayIndex := func(t time.Time) int {
+		y, m, d := t.Date()
+		return int(time.Date(y, m, d, 0, 0, 0, 0, time.UTC).Sub(monthStart).Hours() / 24)
+	}
 
 	var cells []calCell
 	empty := func(from, to int) {
