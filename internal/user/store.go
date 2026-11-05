@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -83,5 +84,22 @@ func (s *Store) Authenticate(ctx context.Context, username, password string) (Us
 	if !ok {
 		return User{}, ErrInvalidCredentials
 	}
+	s.rehashIfWeak(ctx, u.ID, password, hash)
 	return u, nil
+}
+
+// rehashIfWeak は、保存されたハッシュの回数がいまより少ないとき、いまの回数で作り直して保存する（ログイン成功時だけ。
+// 平文のパスワードが手元にあるのは、このときだけ）。失敗しても、ログイン自体は成功させる（次の機会にやり直す）。
+// 同時にパスワードが変えられていた場合に上書きしないよう、読んだときのハッシュと同じ行だけを更新する。
+func (s *Store) rehashIfWeak(ctx context.Context, id int64, password, old string) {
+	if !NeedsRehash(old) {
+		return
+	}
+	fresh, err := HashPassword(password)
+	if err != nil {
+		return
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE users SET password_hash = $2 WHERE id = $1 AND password_hash = $3`, id, fresh, old); err != nil {
+		log.Printf("user: パスワードのハッシュの作り直しに失敗しました（ユーザーID %d。ログインは成功。次の機会にやり直します）: %v", id, err)
+	}
 }

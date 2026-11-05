@@ -75,6 +75,17 @@ func hashWith(password string, iter int) (string, error) {
 	return strings.Join([]string{scheme, strconv.Itoa(iter), enc.EncodeToString(salt), enc.EncodeToString(key)}, "$"), nil
 }
 
+// NeedsRehash は、保存されたハッシュの回数が、いまの回数（iterations）より少ないか。
+// 少なければ、ログインに成功したときに、いまの回数で作り直す。形式が不正なら false（作り直しの対象にしない）。
+func NeedsRehash(stored string) bool {
+	parts := strings.Split(stored, "$")
+	if len(parts) != 4 || parts[0] != scheme {
+		return false
+	}
+	iter, err := strconv.Atoi(parts[1])
+	return err == nil && iter >= 1 && iter < iterations
+}
+
 // VerifyPassword は、パスワードが保存されたハッシュと一致するか。
 // 形式が不正なら ErrInvalidHash。一致しないだけなら (false, nil)。比較は一定の時間で行う。
 func VerifyPassword(password, stored string) (bool, error) {

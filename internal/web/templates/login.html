@@ -1,0 +1,22 @@
+{{define "content"}}
+{{with .Data.Error}}<p class="notice notice-warn" role="alert">{{.}}</p>{{end}}
+
+<form class="form" method="post" action="/login">
+  <input type="hidden" name="next" value="{{.Data.Next}}">
+
+  <div class="field">
+    <label for="username">ユーザー名</label>
+    <input id="username" name="username" type="text" value="{{.Data.Username}}" maxlength="64" required
+      autocomplete="username" autocapitalize="none" spellcheck="false" autofocus>
+  </div>
+
+  <div class="field">
+    <label for="password">パスワード</label>
+    <input id="password" name="password" type="password" maxlength="1024" required autocomplete="current-password">
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">ログインする</button>
+  </div>
+</form>
+{{end}}

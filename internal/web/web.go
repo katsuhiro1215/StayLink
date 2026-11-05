@@ -20,16 +20,21 @@ var assets embed.FS
 // 各画面が同じ名前のブロック "content" を定義しても衝突しない。
 type pages map[string]*template.Template
 
-func loadPages() (pages, error) {
+// loadPages はテンプレートを読み込む。auth は、ログインを求めるか（ナビにログアウトを出すかの判断に使う）。
+func loadPages(auth bool) (pages, error) {
+	fm := template.FuncMap{"authEnabled": func() bool { return auth }}
+	for k, v := range funcs {
+		fm[k] = v
+	}
 	names := []string{
-		"home", "notfound", "error",
+		"home", "notfound", "error", "login",
 		"rooms", "room_form",
 		"reservations", "reservation_form", "reservation_view", "reservation_cancel",
 		"calendar",
 	}
 	p := make(pages, len(names))
 	for _, name := range names {
-		t, err := template.New(name).Funcs(funcs).ParseFS(assets, "templates/layout.html", "templates/"+name+".html")
+		t, err := template.New(name).Funcs(fm).ParseFS(assets, "templates/layout.html", "templates/"+name+".html")
 		if err != nil {
 			return nil, err
 		}
@@ -53,19 +58,25 @@ type server struct {
 	rooms        RoomStore
 	reservations ReservationStore
 	now          func() time.Time // 「今日」を決める。テストで差し替える
+	auth         *authConfig      // nil ならログインを求めない（テスト用。NewHandler は必ず付ける）
 }
 
-// NewHandler はルーティングを組み立てて返す。
-func NewHandler(rooms RoomStore, reservations ReservationStore) (http.Handler, error) {
-	return newHandler(rooms, reservations, time.Now)
+// NewHandler はルーティングを組み立てて返す。/login と /static/ 以外は、ログインしている人だけに見せる。
+// secureCookie は、HTTPS で使うときに true（セッションの Cookie に Secure を常に付ける）。
+func NewHandler(rooms RoomStore, reservations ReservationStore, users Authenticator, sessions SessionStore, secureCookie bool) (http.Handler, error) {
+	return newHandler(rooms, reservations, time.Now, withAuth(users, sessions, secureCookie))
 }
 
-func newHandler(rooms RoomStore, reservations ReservationStore, now func() time.Time) (http.Handler, error) {
-	p, err := loadPages()
+func newHandler(rooms RoomStore, reservations ReservationStore, now func() time.Time, opts ...option) (http.Handler, error) {
+	s := &server{rooms: rooms, reservations: reservations, now: now}
+	for _, opt := range opts {
+		opt(s)
+	}
+	p, err := loadPages(s.auth != nil)
 	if err != nil {
 		return nil, err
 	}
-	s := &server{pages: p, rooms: rooms, reservations: reservations, now: now}
+	s.pages = p
 
 	static, err := fs.Sub(assets, "static")
 	if err != nil {
@@ -95,11 +106,19 @@ func newHandler(rooms RoomStore, reservations ReservationStore, now func() time.
 		s.notFound(w)
 	})
 
-	// 他のサイトのページからブラウザ経由で送られた POST などを拒否する（標準ライブラリの機能）。
+	var handler http.Handler = mux
+	if s.auth != nil {
+		mux.HandleFunc("GET /login", s.loginPage)
+		mux.HandleFunc("POST /login", s.login)
+		mux.HandleFunc("POST /logout", s.logout)
+		handler = s.requireLogin(mux) // /login と /static/ 以外は、ログインを求める
+	}
+
+	// 他のサイトのページからブラウザ経由で送られた POST などを拒否する（標準ライブラリの機能。ログインの POST も含む）。
 	// 限界：Sec-Fetch-Site / Origin を持たないリクエスト（curl など）は通す。Host の検証もしない。
-	// 認証なし・自分のPCだけで使う前提の対策。LAN や外部に公開するなら、認証と Host 検証が要る。
+	// 通しても、Cookie（SameSite=Lax）がなければ、ログインを求められて止まる。
 	// 外側にセキュリティヘッダを付ける（CrossOriginProtection が拒否した応答にも付く）。
-	return securityHeaders(http.NewCrossOriginProtection().Handler(mux)), nil
+	return securityHeaders(http.NewCrossOriginProtection().Handler(handler)), nil
 }
 
 // pageData は全画面で共通のテンプレート入力。
