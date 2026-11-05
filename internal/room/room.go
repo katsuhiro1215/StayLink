@@ -4,6 +4,7 @@ package room
 import (
 	"errors"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -29,6 +30,11 @@ type Room struct {
 	IsActive  bool
 }
 
+// hasControl は制御文字（改行・タブ・NUL など）を含むかを返す。
+func hasControl(s string) bool {
+	return strings.IndexFunc(s, unicode.IsControl) >= 0
+}
+
 // Validate は入力の誤りを項目名ごとに返す。誤りがなければ空。
 func (r *Room) Validate() map[string]string {
 	errs := map[string]string{}
@@ -39,6 +45,9 @@ func (r *Room) Validate() map[string]string {
 		errs["name"] = "部屋の名前を入力してください。"
 	case utf8.RuneCountInString(r.Name) > MaxNameLen:
 		errs["name"] = "部屋の名前は50文字以内にしてください。"
+	case !utf8.ValidString(r.Name) || hasControl(r.Name):
+		// 不正なバイト列や NUL は PostgreSQL が拒否して 500 になるので、先に弾く。改行・タブも不要。
+		errs["name"] = "部屋の名前に使えない文字が含まれています。"
 	}
 
 	if r.Capacity < 1 || r.Capacity > MaxCapacity {
