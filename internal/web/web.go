@@ -131,6 +131,7 @@ func (p pages) render(w http.ResponseWriter, status int, name string, data pageD
 }
 
 // honorific は、名前に敬称をつける。すでに敬称で終わっているときは、重ねない（「山田様さん」を防ぐ）。
+// 末尾の文字だけで判定するので、「山田様（団体）」「山田様ご一行」「○○御中」「サン」「Mr.」などは対象外（敬称が重なる）。
 func honorific(name string) string {
 	for _, h := range []string{"さん", "様", "さま", "殿", "氏", "先生"} {
 		if strings.HasSuffix(name, h) {

@@ -1,8 +1,11 @@
 package web
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
-// セキュリティ関連のレスポンスヘッダ。すべての応答（404・405・500・静的ファイルを含む）に付ける。
+// セキュリティ関連のレスポンスヘッダ。ハンドラが返す応答（404・405・500・静的ファイルを含む）に付ける。
 //
 // Content-Security-Policy の中身：
 //   - default-src 'none'：明示したもの以外は、何も読み込まない
@@ -16,13 +19,21 @@ import "net/http"
 // 将来スクリプトを足すときは、ここに script-src 'self' を足す（インラインは避ける）。
 const contentSecurityPolicy = "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 
-// securityHeaders は、全応答にセキュリティヘッダを付ける。
+// securityHeaders は、ハンドラが返す応答すべてにセキュリティヘッダを付ける。
 //
-// 限界：HTTPS を使わない前提なので、Strict-Transport-Security は付けない（HTTP で付けても無視される。
-// HTTPS で公開するなら、リバースプロキシ側で付ける）。
+// 限界：
+//   - net/http がハンドラより前に返す応答（不正なリクエスト行の 400、ヘッダ過大の 431 など）は、ここを通らない。
+//   - HTTPS を使わない前提なので、Strict-Transport-Security は付けない（HTTP で付けても無視される。
+//     HTTPS で公開するなら、リバースプロキシ側で付ける）。
+//
+// Cache-Control: no-store は、/static/ 以外（宿泊者名・連絡先を含む画面）に付ける。
+// 戻る・進むでの再表示や、共有のPCの履歴に、個人情報が残りにくくするため。CSS（/static/）は付けない。
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
+		if !strings.HasPrefix(r.URL.Path, "/static/") {
+			h.Set("Cache-Control", "no-store")
+		}
 		h.Set("Content-Security-Policy", contentSecurityPolicy)
 		h.Set("X-Content-Type-Options", "nosniff") // Content-Type を勝手に推測させない
 		h.Set("X-Frame-Options", "DENY")           // CSP の frame-ancestors を解さない古いブラウザ向け

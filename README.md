@@ -82,11 +82,12 @@ STAYLINK_REQUIRE_DB=1 go test ./... # DBが使えないときは、飛ばさず�
 
 ## セキュリティ
 
-- すべての応答に、`Content-Security-Policy`（自分のサイトのCSSだけを許可。スクリプト・インラインのスタイル・外部読み込みは不可。フォームの送信先も自分のサイトだけ）、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer`、`Cross-Origin-Opener-Policy: same-origin` を付けます。
+- ハンドラが返す応答（404・405・500・静的ファイルを含む）に、`Content-Security-Policy`（自分のサイトのCSSだけを許可。スクリプト・インラインのスタイル・外部読み込みは不可。フォームの送信先も自分のサイトだけ）、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer`、`Cross-Origin-Opener-Policy: same-origin` を付けます（`net/http` がハンドラより前に返す、不正な要求への400などは対象外）。宿泊者名・連絡先を含む画面（`/static/` 以外）には、`Cache-Control: no-store` も付けて、戻る・進むでの再表示や履歴に残りにくくします。
 - テンプレートとCSSが、この方針を守っているか（`<script>`・`style=`・`onclick=`・外部の参照がないか）を、テストで確かめています。破ると画面が崩れるためです。JavaScriptを足すときは、`internal/web/security.go` に `script-src self` を足してください。
 - `Strict-Transport-Security` は付けていません（HTTPSを使わない前提。HTTPSで公開するなら、前に置くサーバー側で付けます）。
 - **ログインがない**ため、`HOST=0.0.0.0` でLANへ公開しないでください。他のサイトからのPOSTを拒否するしくみ（`CrossOriginProtection`）は、認証の代わりにはなりません。
-- 実際にブラウザで、CSSの適用とフォームの送信が、CSPに止められないことを確認しています。
+- ブラウザ（Playwright の Chromium、2026-11-06）で、カレンダー画面のCSS適用と、部屋の登録フォームの送信（303で一覧へ戻る）が、CSPに止められず、コンソールエラーが出ないことを確認しました。他のブラウザ・古いブラウザは未確認です。
+- 保存に失敗して500の画面になったとき、入力した内容は残りません（再入力が必要です）。
 
 ## 未検証・できていないこと
 
