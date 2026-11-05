@@ -90,6 +90,37 @@ func (s *Store) List(ctx context.Context, f Filter) ([]Reservation, error) {
 	return list, nil
 }
 
+// Between は、from（含む）〜 to（含まない）の間に泊まりがある、取消されていない予約を返す。
+// 月間カレンダー用。部屋の順、チェックイン日の順に並べる。
+//
+// 期間は半開区間として扱う。予約のチェックアウト日が from と同じ日なら、その日の夜は泊まらないので、
+// 含めない。チェックイン日が to と同じ日の予約も、to 以降の夜からなので、含めない。
+func (s *Store) Between(ctx context.Context, from, to time.Time) ([]Reservation, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT `+selectColumns+`
+		   FROM reservations r JOIN rooms rm ON rm.id = r.room_id
+		  WHERE r.status <> 'cancelled'
+		    AND daterange(r.check_in, r.check_out) && daterange($1::date, $2::date)
+		  ORDER BY r.room_id, r.check_in, r.id`, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("reservation: 期間内の取得: %w", err)
+	}
+	defer rows.Close()
+
+	var list []Reservation
+	for rows.Next() {
+		r, err := scan(rows)
+		if err != nil {
+			return nil, fmt.Errorf("reservation: 期間内の読み取り: %w", err)
+		}
+		list = append(list, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reservation: 期間内の読み取り: %w", err)
+	}
+	return list, nil
+}
+
 // Get は ID で1件取得する。なければ ErrNotFound。
 func (s *Store) Get(ctx context.Context, id int64) (Reservation, error) {
 	r, err := scan(s.db.QueryRowContext(ctx,
