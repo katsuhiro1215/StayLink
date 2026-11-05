@@ -14,6 +14,7 @@
       <nav aria-label="メインメニュー">
         <ul class="nav">
           <li><a href="/"{{if eq .Active "home"}} aria-current="page"{{end}}>トップ</a></li>
+          <li><a href="/calendar"{{if eq .Active "calendar"}} aria-current="page"{{end}}>カレンダー</a></li>
           <li><a href="/reservations"{{if eq .Active "reservations"}} aria-current="page"{{end}}>予約</a></li>
           <li><a href="/rooms"{{if eq .Active "rooms"}} aria-current="page"{{end}}>部屋</a></li>
         </ul>

@@ -15,12 +15,13 @@ import (
 
 // fakeReservations はメモリ上の ReservationStore。
 type fakeReservations struct {
-	items      []reservation.Reservation
-	nextID     int64
-	err        error
-	overlapErr error              // 設定すると、Overlapping（案内用の検索）だけが失敗する
-	writeErr   error              // 設定すると、Create / Update だけがこのエラーで失敗する
-	lastFilter reservation.Filter // 直近の List に渡された条件
+	items       []reservation.Reservation
+	nextID      int64
+	err         error
+	overlapErr  error              // 設定すると、Overlapping（案内用の検索）だけが失敗する
+	writeErr    error              // 設定すると、Create / Update だけがこのエラーで失敗する
+	lastFilter  reservation.Filter // 直近の List に渡された条件
+	lastBetween [2]time.Time       // 直近の Between に渡された期間（from, to）
 }
 
 func (f *fakeReservations) List(_ context.Context, flt reservation.Filter) ([]reservation.Reservation, error) {
@@ -58,6 +59,21 @@ func (f *fakeReservations) overlapping(roomID int64, in, out time.Time, excludeI
 		}
 	}
 	return hit
+}
+
+// Between は、期間（from 含む〜to 含まない）に泊まりがある、取消されていない予約を返す（半開区間）。
+func (f *fakeReservations) Between(_ context.Context, from, to time.Time) ([]reservation.Reservation, error) {
+	f.lastBetween = [2]time.Time{from, to}
+	if f.err != nil {
+		return nil, f.err
+	}
+	var hit []reservation.Reservation
+	for _, it := range f.items {
+		if it.Status != reservation.StatusCancelled && it.CheckIn.Before(to) && from.Before(it.CheckOut) {
+			hit = append(hit, it)
+		}
+	}
+	return hit, nil
 }
 
 func (f *fakeReservations) Overlapping(_ context.Context, roomID int64, in, out time.Time, excludeID int64) ([]reservation.Reservation, error) {

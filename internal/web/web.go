@@ -24,6 +24,7 @@ func loadPages() (pages, error) {
 		"home", "notfound",
 		"rooms", "room_form",
 		"reservations", "reservation_form", "reservation_view", "reservation_cancel",
+		"calendar",
 	}
 	p := make(pages, len(names))
 	for _, name := range names {
@@ -74,6 +75,7 @@ func newHandler(rooms RoomStore, reservations ReservationStore, now func() time.
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		p.render(w, http.StatusOK, "home", pageData{Title: "トップ", Active: "home"})
 	})
+	mux.HandleFunc("GET /calendar", s.calendar)
 	mux.HandleFunc("GET /reservations", s.reservationList)
 	mux.HandleFunc("GET /reservations/new", s.reservationNew)
 	mux.HandleFunc("POST /reservations", s.reservationCreate)
