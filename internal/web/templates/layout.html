@@ -1,0 +1,27 @@
+{{define "layout"}}<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} | StayLink</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <a class="brand" href="/">StayLink</a>
+      <p class="brand-sub">民宿の予約台帳</p>
+      <nav aria-label="メインメニュー">
+        <ul class="nav">
+          <li><a href="/"{{if eq .Active "home"}} aria-current="page"{{end}}>トップ</a></li>
+          <li><a href="/rooms"{{if eq .Active "rooms"}} aria-current="page"{{end}}>部屋</a></li>
+        </ul>
+      </nav>
+    </aside>
+    <main class="main">
+      <h1 class="page-title">{{.Title}}</h1>
+      {{template "content" .}}
+    </main>
+  </div>
+</body>
+</html>{{end}}
